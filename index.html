@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCP - Controle de Reservas de Clientes</title>
+    <!-- Tailwind CSS para estilização moderna e limpa -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js para os Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: {
+                            800: '#1e293b',
+                            900: '#0f172a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-white min-h-screen text-slate-800 flex flex-col m-0 p-0 w-full overflow-x-hidden">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-navy-900 text-white px-6 py-4 flex items-center justify-between shadow-md w-full">
+        <div class="flex items-center space-x-4">
+            <!-- Botão do Menu (3 listras) -->
+            <button id="menuBtn" class="text-white focus:outline-none hover:text-slate-300 p-2 rounded-lg transition" title="Menu e Indicadores">
+                <i class="fa-solid fa-bars text-xl"></i>
+            </button>
+            <h1 class="text-lg font-semibold tracking-wide">PCP - Controle de Reservas de Clientes</h1>
+        </div>
+        <div>
+            <button onclick="openNewModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center space-x-2 transition shadow-sm">
+                <i class="fa-solid fa-plus"></i>
+                <span>Nova Reserva</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Menu Lateral Deslizante (Gaveta) -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/40 z-40 hidden transition-opacity"></div>
+    <aside id="sidebar" class="fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50 transform -translate-x-full transition-transform duration-300 flex flex-col border-r border-slate-200">
+        <div class="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <h2 class="font-bold text-slate-800 text-base flex items-center space-x-2">
+                <i class="fa-solid fa-bars-progress text-indigo-600"></i>
+                <span>Menu & Indicadores</span>
+            </h2>
+            <button id="closeSidebar" class="text-slate-500 hover:text-slate-800 p-2 rounded-lg">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-4">
+            <!-- Links de Navegação de Abas -->
+            <div class="space-y-1">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 mb-2">Navegação</p>
+                <button onclick="switchTab('geral')" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition flex items-center space-x-3 text-slate-700 hover:bg-slate-100">
+                    <i class="fa-solid fa-list-check w-5 text-indigo-600"></i>
+                    <span>Reservas Ativas - Aba Geral</span>
+                </button>
+                <button onclick="openChartsModal()" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition flex items-center space-x-3 text-slate-700 hover:bg-slate-100">
+                    <i class="fa-solid fa-chart-line w-5 text-indigo-600"></i>
+                    <span>Gráficos e Estatísticas</span>
+                </button>
+            </div>
+
+            <hr class="border-slate-200 my-2">
+
+            <!-- Indicadores e Relatórios Rápidos (Acordions) -->
+            <div>
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 mb-2">Indicadores e Relatórios</p>
+                
+                <!-- 1. Reservas em Aberto -->
+                <div class="border border-slate-200 rounded-lg mb-2 overflow-hidden shadow-sm">
+                    <button onclick="toggleAccordion('acc-aberto')" class="w-full bg-slate-50 p-3 text-left font-medium text-sm text-slate-700 flex justify-between items-center hover:bg-slate-100 transition">
+                        <span class="flex items-center space-x-2">
+                            <i class="fa-solid fa-clock text-amber-500"></i>
+                            <span>Reservas em Aberto - Tempo</span>
+                        </span>
+                        <i id="icon-acc-aberto" class="fa-solid fa-chevron-down text-xs text-slate-400 transition-transform"></i>
+                    </button>
+                    <div id="acc-aberto" class="hidden p-3 bg-white text-xs space-y-2 border-t border-slate-100">
+                        <p class="text-slate-500">Apenas reservas Disponíveis e Parciais, ordenadas da mais antiga para a mais recente.</p>
+                        <div class="mb-2">
+                            <label class="block font-semibold text-slate-600 mb-1">Filtrar Cliente:</label>
+                            <select id="filterClientAberto" onchange="renderOpenReservations()" class="w-full p-1.5 border border-slate-300 rounded text-xs focus:outline-none focus:border-indigo-500">
+                                <option value="">Todos os Clientes</option>
+                            </select>
+                        </div>
+                        <div id="contentOpenReservations" class="space-y-2 max-h-48 overflow-y-auto"></div>
+                    </div>
+                </div>
+
+                <!-- 2. Clientes com Mais Reservas -->
+                <div class="border border-slate-200 rounded-lg mb-2 overflow-hidden shadow-sm">
+                    <button onclick="toggleAccordion('acc-clientes')" class="w-full bg-slate-50 p-3 text-left font-medium text-sm text-slate-700 flex justify-between items-center hover:bg-slate-100 transition">
+                        <span class="flex items-center space-x-2">
+                            <i class="fa-solid fa-users text-blue-500"></i>
+                            <span>Clientes com Mais Reservas</span>
+                        </span>
+                        <i id="icon-acc-clientes" class="fa-solid fa-chevron-down text-xs text-slate-400 transition-transform"></i>
+                    </button>
+                    <div id="acc-clientes" class="hidden p-3 bg-white text-xs space-y-2 border-t border-slate-100">
+                        <p class="text-slate-500 mb-1">Clique no nome do cliente para ver todas as reservas em tela cheia.</p>
+                        <div id="contentTopClients" class="space-y-1 max-h-48 overflow-y-auto"></div>
+                    </div>
+                </div>
+
+                <!-- 3. Reservas Utilizadas -->
+                <div class="border border-slate-200 rounded-lg mb-2 overflow-hidden shadow-sm">
+                    <button onclick="toggleAccordion('acc-utilizadas')" class="w-full bg-slate-50 p-3 text-left font-medium text-sm text-slate-700 flex justify-between items-center hover:bg-slate-100 transition">
+                        <span class="flex items-center space-x-2">
+                            <i class="fa-solid fa-circle-check text-emerald-500"></i>
+                            <span>Reservas Utilizadas (Concluídas)</span>
+                        </span>
+                        <i id="icon-acc-utilizadas" class="fa-solid fa-chevron-down text-xs text-slate-400 transition-transform"></i>
+                    </button>
+                    <div id="acc-utilizadas" class="hidden p-3 bg-white text-xs space-y-2 border-t border-slate-100">
+                        <div id="contentUsedReservations" class="space-y-2 max-h-48 overflow-y-auto"></div>
+                    </div>
+                </div>
+
+                <!-- 4. Reservas Canceladas -->
+                <div class="border border-slate-200 rounded-lg mb-2 overflow-hidden shadow-sm">
+                    <button onclick="toggleAccordion('acc-canceladas')" class="w-full bg-slate-50 p-3 text-left font-medium text-sm text-slate-700 flex justify-between items-center hover:bg-slate-100 transition">
+                        <span class="flex items-center space-x-2">
+                            <i class="fa-solid fa-ban text-rose-500"></i>
+                            <span>Reservas Canceladas</span>
+                        </span>
+                        <i id="icon-acc-canceladas" class="fa-solid fa-chevron-down text-xs text-slate-400 transition-transform"></i>
+                    </button>
+                    <div id="acc-canceladas" class="hidden p-3 bg-white text-xs space-y-2 border-t border-slate-100">
+                        <div id="contentCanceledReservations" class="space-y-2 max-h-48 overflow-y-auto"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 w-full px-6 py-6 bg-white flex flex-col">
+        
+        <!-- Controls Bar: Search, Unit Filter, Batch Actions -->
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-6 w-full">
+            <div class="flex items-center space-x-4 w-full md:w-auto flex-1">
+                <!-- Search Bar -->
+                <div class="relative w-full md:w-80">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                    </span>
+                    <input type="text" id="searchInput" oninput="filterTable()" placeholder="Buscar por cliente, item ou descrição..." class="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-indigo-500 shadow-sm">
+                </div>
+
+                <!-- Unit Filter -->
+                <div class="relative w-60">
+                    <select id="unitFilter" onchange="filterTable()" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-indigo-500 shadow-sm appearance-none cursor-pointer">
+                        <option value="AMBAS">Ambas as Unidades (AMBAS)</option>
+                    </select>
+                    <span class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-500">
+                        <i class="fa-solid fa-chevron-down text-xs"></i>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Batch Action Button -->
+            <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
+                <button onclick="confirmSelectedBatch()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center space-x-2">
+                    <i class="fa-solid fa-check-double text-xs"></i>
+                    <span>Confirmar Selecionadas</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Data Table Card -->
+        <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col w-full">
+            <div class="overflow-x-auto flex-1">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                            <th class="p-3.5 w-10 text-center">
+                                <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                            </th>
+                            <th class="p-3.5">Máquina</th>
+                            <th class="p-3.5">Item</th>
+                            <th class="p-3.5">Cliente</th>
+                            <th class="p-3.5">Qtd. Disponível</th>
+                            <th class="p-3.5">Descrição</th>
+                            <th class="p-3.5">Data PCP</th>
+                            <th class="p-3.5">Disponibilidade</th>
+                            <th class="p-3.5 text-orange-600 font-bold">Data de Chegada</th>
+                            <th class="p-3.5 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reservasTableBody" class="divide-y divide-slate-100 text-sm">
+                        <!-- Inserido dinamicamente via JavaScript -->
+                    </tbody>
+                    <!-- Rodapé com Auto Soma -->
+                    <tfoot>
+                        <tr class="bg-slate-50 border-t-2 border-slate-200 font-bold text-slate-700 text-sm">
+                            <td colspan="4" class="p-3.5 text-right uppercase tracking-wider text-xs">Total Geral Disponível:</td>
+                            <td id="totalSumQuantity" class="p-3.5 text-indigo-600">0 KG</td>
+                            <td colspan="5"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal Nova Reserva -->
+    <div id="newModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all">
+            <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+                <h3 class="font-semibold text-base">Nova Reserva de Cliente</h3>
+                <button onclick="closeNewModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form id="newReservationForm" onsubmit="handleNewReservation(event)" class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Máquina</label>
+                        <input type="text" id="newMachine" required placeholder="Ex: Prensa 01" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Item</label>
+                        <input type="text" id="newItem" required placeholder="Ex: IT-4021" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Cliente</label>
+                    <input type="text" id="newClient" required placeholder="Nome do Cliente" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Quantidade Disponível (KG)</label>
+                        <input type="number" id="newQuantity" required step="0.001" placeholder="3400" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Unidade</label>
+                        <select id="newUnit" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                            <option value="MG1">MG1</option>
+                            <option value="MG4">MG4</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Descrição</label>
+                    <input type="text" id="newDescription" required placeholder="Descrição do material" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Data PCP</label>
+                        <input type="date" id="newPcpDate" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-orange-600 uppercase mb-1">Data de Chegada</label>
+                        <input type="date" id="newArrivalDate" required class="w-full px-3 py-2 border border-orange-300 rounded-lg text-sm focus:outline-none focus:border-orange-500">
+                    </div>
+                </div>
+                <div class="pt-4 flex justify-end space-x-3 border-t border-slate-200">
+                    <button type="button" onclick="closeNewModal()" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition shadow-sm">Cadastrar Reserva</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Gráficos e Estatísticas Mensais -->
+    <div id="chartsModal" class="fixed inset-0 bg-white z-50 hidden flex flex-col overflow-y-auto">
+        <div class="bg-slate-900 text-white px-8 py-4 flex items-center justify-between shadow-md">
+            <div class="flex items-center space-x-4">
+                <button onclick="closeChartsModal()" class="text-white hover:text-slate-300 p-2 rounded-lg transition" title="Voltar">
+                    <i class="fa-solid fa-arrow-left text-xl"></i>
+                </button>
+                <h2 class="text-lg font-bold">Estatísticas Mensais - Gráficos de Reservas</h2>
+            </div>
+            <div>
+                <button onclick="closeChartsModal()" class="text-slate-400 hover:text-white p-2 rounded-lg">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+        </div>
+        <div class="p-8 flex-1 max-w-7xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+            <!-- Gráfico 1: Criadas -->
+            <div class="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col">
+                <h3 class="font-bold text-slate-800 text-sm mb-3 flex items-center space-x-2">
+                    <i class="fa-solid fa-chart-bar text-indigo-600"></i>
+                    <span>Total de Reservas Criadas por Mês</span>
+                </h3>
+                <div class="relative h-72 w-full">
+                    <canvas id="chartCreated"></canvas>
+                </div>
+            </div>
+            <!-- Gráfico 2: Utilizadas -->
+            <div class="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col">
+                <h3 class="font-bold text-slate-800 text-sm mb-3 flex items-center space-x-2">
+                    <i class="fa-solid fa-chart-bar text-emerald-600"></i>
+                    <span>Total de Reservas Utilizadas por Mês</span>
+                </h3>
+                <div class="relative h-72 w-full">
+                    <canvas id="chartUsed"></canvas>
+                </div>
+            </div>
+            <!-- Gráfico 3: Canceladas -->
+            <div class="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col">
+                <h3 class="font-bold text-slate-800 text-sm mb-3 flex items-center space-x-2">
+                    <i class="fa-solid fa-chart-bar text-rose-600"></i>
+                    <span>Total de Reservas Canceladas por Mês</span>
+                </h3>
+                <div class="relative h-72 w-full">
+                    <canvas id="chartCanceled"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Tela Cheia para Detalhes do Cliente -->
+    <div id="clientModal" class="fixed inset-0 bg-white z-50 hidden flex flex-col overflow-y-auto">
+        <div class="bg-slate-900 text-white px-8 py-4 flex items-center justify-between shadow-md">
+            <div class="flex items-center space-x-4">
+                <button onclick="closeClientModal()" class="text-white hover:text-slate-300 p-2 rounded-lg transition" title="Voltar">
+                    <i class="fa-solid fa-arrow-left text-xl"></i>
+                </button>
+                <h2 id="clientModalTitle" class="text-lg font-bold">Todas as Reservas do Cliente</h2>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center space-x-2 transition shadow-sm">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    <span>PDF</span>
+                </button>
+                <button onclick="closeClientModal()" class="text-slate-400 hover:text-white p-2 rounded-lg">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+        </div>
+        <div class="p-8 flex-1 max-w-7xl mx-auto w-full">
+            <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                            <th class="p-3.5">Máquina</th>
+                            <th class="p-3.5">Item</th>
+                            <th class="p-3.5">Unidade</th>
+                            <th class="p-3.5">Qtd. Disponível</th>
+                            <th class="p-3.5">Descrição</th>
+                            <th class="p-3.5">Data PCP</th>
+                            <th class="p-3.5">Disponibilidade</th>
+                            <th class="p-3.5 text-orange-600 font-bold">Data de Chegada</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientModalTableBody" class="divide-y divide-slate-100 text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Principal com Firebase Firestore Integrado -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, addDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCtZG8GZS4CTdiFJQJQgncn8rGxtUvNMLs",
+            authDomain: "dados-pcp.firebaseapp.com",
+            projectId: "dados-pcp",
+            storageBucket: "dados-pcp.firebasestorage.app",
+            messagingSenderId: "674776626674",
+            appId: "1:674776626674:web:c582e4736a136d8777e76b",
+            measurementId: "G-9RM5EFDD1S"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let reservations = [];
+
+        let chartCreatedInstance = null;
+        let chartUsedInstance = null;
+        let chartCanceledInstance = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            initSidebar();
+            await fetchReservationsFromFirebase();
+        });
+
+        async function fetchReservationsFromFirebase() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "reservas"));
+                reservations = [];
+                querySnapshot.forEach((docSnap) => {
+                    reservations.push({ idFirebase: docSnap.id, ...docSnap.data() });
+                });
+                renderTable();
+                updateIndicatorsContent();
+            } catch (error) {
+                console.error("Erro ao carregar dados do Firebase: ", error);
+            }
+        }
+
+        const menuBtn = document.getElementById('menuBtn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const closeSidebar = document.getElementById('closeSidebar');
+
+        function openSidebar() {
+            sidebar.classList.remove('-translate-x-full');
+            sidebarOverlay.classList.remove('hidden');
+            updateIndicatorsContent();
+        }
+
+        function closeSidebarDrawer() {
+            sidebar.classList.add('-translate-x-full');
+            sidebarOverlay.classList.add('hidden');
+        }
+
+        menuBtn.addEventListener('click', openSidebar);
+        closeSidebar.addEventListener('click', closeSidebarDrawer);
+        sidebarOverlay.addEventListener('click', closeSidebarDrawer);
+
+        window.switchTab = function(tabName) {
+            closeSidebarDrawer();
+        }
+
+        window.toggleAccordion = function(id) {
+            const el = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            if (el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+                icon.classList.add('rotate-180');
+            } else {
+                el.classList.add('hidden');
+                icon.classList.remove('rotate-180');
+            }
+        }
+
+        function updateIndicatorsContent() {
+            renderOpenReservations();
+            renderTopClients();
+            renderUsedReservations();
+            renderCanceledReservations();
+            populateClientFilter();
+        }
+
+        function renderOpenReservations() {
+            const clientFilter = document.getElementById('filterClientAberto').value;
+            const container = document.getElementById('contentOpenReservations');
+            
+            let openRes = reservations.filter(r => r.status === 'ativa');
+            if (clientFilter) {
+                openRes = openRes.filter(r => r.client === clientFilter);
+            }
+
+            openRes.sort((a, b) => new Date(a.arrivalDate) - new Date(b.arrivalDate));
+
+            if (openRes.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 italic">Nenhuma reserva aberta encontrada.</p>';
+                return;
+            }
+
+            container.innerHTML = openRes.map(r => {
+                const badge = getAutomaticAvailabilityBadge(r.quantity, r.originalQuantity);
+                const permanenceDays = calculatePermanenceDays(r.arrivalDate, new Date().toISOString().split('T')[0]);
+                return `
+                    <div class="p-2 border border-slate-200 rounded bg-slate-50 flex flex-col space-y-1">
+                        <div class="flex justify-between font-semibold text-slate-800">
+                            <span>${r.client}</span>
+                            <span class="text-indigo-600">${r.quantity} KG</span>
+                        </div>
+                        <div class="text-slate-500 flex justify-between">
+                            <span>Item: ${r.item} (${r.machine})</span>
+                            <span class="font-medium text-amber-600">Permanência: ${permanenceDays} dias</span>
+                        </div>
+                        <div>${badge}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function populateClientFilter() {
+            const select = document.getElementById('filterClientAberto');
+            const clients = [...new Set(reservations.map(r => r.client))];
+            const currentVal = select.value;
+            select.innerHTML = '<option value="">Todos os Clientes</option>' + clients.map(c => `<option value="${c}">${c}</option>`).join('');
+            select.value = currentVal;
+        }
+
+        function renderTopClients() {
+            const container = document.getElementById('contentTopClients');
+            const activeRes = reservations.filter(r => r.status === 'ativa');
+            
+            const counts = {};
+            activeRes.forEach(r => {
+                counts[r.client] = (counts[r.client] || 0) + 1;
+            });
+
+            const sortedClients = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+            if (sortedClients.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 italic">Nenhum cliente com reservas ativas.</p>';
+                return;
+            }
+
+            container.innerHTML = sortedClients.map(([client, count]) => `
+                <div class="flex justify-between items-center p-2 hover:bg-slate-100 rounded cursor-pointer transition border-b border-slate-100 last:border-0" onclick="openClientModal('${client}')">
+                    <span class="font-medium text-slate-700 underline">${client}</span>
+                    <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">${count} ativa(s)</span>
+                </div>
+            `).join('');
+        }
+
+        function renderUsedReservations() {
+            const container = document.getElementById('contentUsedReservations');
+            const used = reservations.filter(r => r.status === 'concluida');
+
+            if (used.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 italic">Nenhuma reserva utilizada.</p>';
+                return;
+            }
+
+            container.innerHTML = used.map(r => {
+                const permanence = calculatePermanenceDays(r.arrivalDate, r.actionDate || r.arrivalDate);
+                return `
+                    <div class="p-2 border border-slate-200 rounded bg-emerald-50/50 flex flex-col space-y-1">
+                        <div class="flex justify-between font-semibold text-slate-800">
+                            <span>${r.client}</span>
+                            <span class="text-emerald-600">${r.originalQuantity} KG</span>
+                        </div>
+                        <div class="text-slate-500 text-[11px] flex justify-between">
+                            <span>Chegada: ${formatDate(r.arrivalDate)} | Conclusão: ${formatDate(r.actionDate)}</span>
+                            <span class="font-bold text-slate-700">Permanência: ${permanence} dias</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderCanceledReservations() {
+            const container = document.getElementById('contentCanceledReservations');
+            const canceled = reservations.filter(r => r.status === 'cancelada');
+
+            if (canceled.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 italic">Nenhuma reserva cancelada.</p>';
+                return;
+            }
+
+            container.innerHTML = canceled.map(r => {
+                const permanence = calculatePermanenceDays(r.arrivalDate, r.actionDate || r.arrivalDate);
+                return `
+                    <div class="p-2 border border-slate-200 rounded bg-rose-50/50 flex flex-col space-y-1">
+                        <div class="flex justify-between font-semibold text-slate-800">
+                            <span>${r.client}</span>
+                            <span class="text-rose-600">${r.originalQuantity} KG</span>
+                        </div>
+                        <div class="text-slate-500 text-[11px] flex justify-between">
+                            <span>Chegada: ${formatDate(r.arrivalDate)} | Cancelamento: ${formatDate(r.actionDate)}</span>
+                            <span class="font-bold text-slate-700">Permanência: ${permanence} dias</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function calculatePermanenceDays(startDate, endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const diffTime = Math.abs(end - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays;
+        }
+
+        function getAutomaticAvailabilityBadge(currentQty, originalQty) {
+            if (currentQty >= originalQty) {
+                return '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 inline-block">Disponível</span>';
+            } else if (currentQty > 0 && currentQty < originalQty) {
+                return '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 inline-block">Parcialmente</span>';
+            } else {
+                return '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 inline-block">Disponível</span>';
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('reservasTableBody');
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const unit = document.getElementById('unitFilter').value;
+
+            let filtered = reservations.filter(r => r.status === 'ativa');
+
+            if (search) {
+                filtered = filtered.filter(r => 
+                    r.client.toLowerCase().includes(search) || 
+                    r.item.toLowerCase().includes(search) || 
+                    r.description.toLowerCase().includes(search) ||
+                    r.machine.toLowerCase().includes(search)
+                );
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-400 italic">Nenhum registro encontrado.</td></tr>`;
+                document.getElementById('totalSumQuantity').innerText = '0 KG';
+                return;
+            }
+
+            let totalSum = 0;
+
+            tbody.innerHTML = filtered.map(r => {
+                totalSum += Number(r.quantity);
+                const badge = getAutomaticAvailabilityBadge(r.quantity, r.originalQuantity);
+                return `
+                    <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                        <td class="p-3.5 text-center">
+                            <input type="checkbox" value="${r.idFirebase}" class="row-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                        </td>
+                        <td class="p-3.5 font-medium text-slate-800">${r.machine}</td>
+                        <td class="p-3.5 font-medium text-slate-800">${r.item}</td>
+                        <td class="p-3.5 text-slate-700">${r.client}</td>
+                        <td class="p-3.5">
+                            <div class="flex items-center space-x-2">
+                                <span id="qty-text-${r.idFirebase}" class="font-bold text-indigo-600">${r.quantity} KG</span>
+                                <button onclick="enableQtyEdit('${r.idFirebase}')" class="text-slate-400 hover:text-indigo-600 transition" title="Editar Quantidade">
+                                    <i class="fa-solid fa-pen text-xs"></i>
+                                </button>
+                            </div>
+                            <div id="qty-edit-${r.idFirebase}" class="hidden flex items-center space-x-1 mt-1">
+                                <input type="number" id="input-qty-${r.idFirebase}" value="${r.quantity}" step="0.001" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:border-indigo-500">
+                                <button onclick="saveQty('${r.idFirebase}')" class="bg-emerald-600 text-white px-2 py-1 rounded text-xs hover:bg-emerald-700 transition" title="Confirmar Quantidade">
+                                    <i class="fa-solid fa-check"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td class="p-3.5 text-slate-600 text-xs">${r.description}</td>
+                        <td class="p-3.5 text-slate-600 text-xs">${formatDate(r.pcpDate)}</td>
+                        <td class="p-3.5">${badge}</td>
+                        <td class="p-3.5 font-semibold text-orange-600 text-xs">${formatDate(r.arrivalDate)}</td>
+                        <td class="p-3.5 text-center">
+                            <div class="flex items-center justify-center space-x-2">
+                                <button onclick="confirmActionWithPrompt('${r.idFirebase}', 'concluida')" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 p-1.5 rounded-lg text-xs transition" title="Concluir / Utilizar">
+                                    <i class="fa-solid fa-check"></i>
+                                </button>
+                                <button onclick="confirmActionWithPrompt('${r.idFirebase}', 'cancelada')" class="bg-rose-100 hover:bg-rose-200 text-rose-700 p-1.5 rounded-lg text-xs transition" title="Cancelar">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('totalSumQuantity').innerText = totalSum.toLocaleString('pt-BR') + ' KG';
+        }
+
+        window.filterTable = function() {
+            renderTable();
+        }
+
+        window.enableQtyEdit = function(idFirebase) {
+            document.getElementById(`qty-text-${idFirebase}`).parentElement.classList.add('hidden');
+            document.getElementById(`qty-edit-${idFirebase}`).classList.remove('hidden');
+        }
+
+        window.saveQty = async function(idFirebase) {
+            const inputVal = Number(document.getElementById(`input-qty-${idFirebase}`).value);
+            try {
+                const resRef = doc(db, "reservas", idFirebase);
+                await updateDoc(resRef, { quantity: inputVal });
+                const res = reservations.find(r => r.idFirebase === idFirebase);
+                if (res) {
+                    res.quantity = inputVal;
+                    renderTable();
+                    updateIndicatorsContent();
+                }
+            } catch (error) {
+                console.error("Erro ao atualizar quantidade no Firebase: ", error);
+            }
+        }
+
+        window.confirmActionWithPrompt = async function(idFirebase, actionType) {
+            const actionName = actionType === 'concluida' ? 'concluir/utilizar' : 'cancelar';
+            if (confirm(`Deseja realmente ${actionName} esta reserva?`)) {
+                try {
+                    const actionDateStr = new Date().toISOString().split('T')[0];
+                    const resRef = doc(db, "reservas", idFirebase);
+                    await updateDoc(resRef, { 
+                        status: actionType,
+                        actionDate: actionDateStr
+                    });
+                    const res = reservations.find(r => r.idFirebase === idFirebase);
+                    if (res) {
+                        res.status = actionType;
+                        res.actionDate = actionDateStr;
+                        renderTable();
+                        updateIndicatorsContent();
+                    }
+                } catch (error) {
+                    console.error("Erro ao atualizar status no Firebase: ", error);
+                }
+            }
+        }
+
+        window.toggleSelectAll = function(master) {
+            const checkboxes = document.querySelectorAll('.row-checkbox');
+            checkboxes.forEach(cb => cb.checked = master.checked);
+        }
+
+        window.confirmSelectedBatch = async function() {
+            const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert('Selecione ao menos uma reserva para confirmar.');
+                return;
+            }
+            if (confirm(`Deseja confirmar (concluir) as ${checkboxes.length} reservas selecionadas?`)) {
+                try {
+                    const actionDateStr = new Date().toISOString().split('T')[0];
+                    for (const cb of checkboxes) {
+                        const idFirebase = cb.value;
+                        const resRef = doc(db, "reservas", idFirebase);
+                        await updateDoc(resRef, { 
+                            status: 'concluida',
+                            actionDate: actionDateStr
+                        });
+                        const res = reservations.find(r => r.idFirebase === idFirebase);
+                        if (res) {
+                            res.status = 'concluida';
+                            res.actionDate = actionDateStr;
+                        }
+                    }
+                    renderTable();
+                    updateIndicatorsContent();
+                    document.getElementById('selectAll').checked = false;
+                } catch (error) {
+                    console.error("Erro ao processar lote no Firebase: ", error);
+                }
+            }
+        }
+
+        window.openNewModal = function() {
+            document.getElementById('newReservationForm').reset();
+            document.getElementById('newModal').classList.remove('hidden');
+        }
+
+        window.closeNewModal = function() {
+            document.getElementById('newModal').classList.add('hidden');
+        }
+
+        window.handleNewReservation = async function(e) {
+            e.preventDefault();
+            const todayStr = new Date().toISOString().split('T')[0];
+            const newRes = {
+                machine: document.getElementById('newMachine').value,
+                item: document.getElementById('newItem').value,
+                client: document.getElementById('newClient').value,
+                quantity: Number(document.getElementById('newQuantity').value),
+                originalQuantity: Number(document.getElementById('newQuantity').value),
+                unit: document.getElementById('newUnit').value,
+                description: document.getElementById('newDescription').value,
+                pcpDate: document.getElementById('newPcpDate').value,
+                arrivalDate: document.getElementById('newArrivalDate').value,
+                status: 'ativa',
+                creationDate: todayStr
+            };
+
+            try {
+                const docRef = await addDoc(collection(db, "reservas"), newRes);
+                reservations.push({ idFirebase: docRef.id, ...newRes });
+                closeNewModal();
+                renderTable();
+                updateIndicatorsContent();
+            } catch (error) {
+                console.error("Erro ao adicionar nova reserva no Firebase: ", error);
+            }
+        }
+
+        window.openClientModal = function(clientName) {
+            closeSidebarDrawer();
+            document.getElementById('clientModalTitle').innerText = `Todas as Reservas do Cliente: ${clientName}`;
+            const tbody = document.getElementById('clientModalTableBody');
+            
+            const clientRes = reservations.filter(r => r.client === clientName);
+
+            tbody.innerHTML = clientRes.map(r => {
+                const badge = getAutomaticAvailabilityBadge(r.quantity, r.originalQuantity);
+                return `
+                    <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                        <td class="p-3.5 font-medium text-slate-800">${r.machine}</td>
+                        <td class="p-3.5 font-medium text-slate-800">${r.item}</td>
+                        <td class="p-3.5 text-slate-600">${r.unit}</td>
+                        <td class="p-3.5 font-bold text-indigo-600">${r.quantity} KG</td>
+                        <td class="p-3.5 text-slate-600 text-xs">${r.description}</td>
+                        <td class="p-3.5 text-slate-600 text-xs">${formatDate(r.pcpDate)}</td>
+                        <td class="p-3.5">${badge}</td>
+                        <td class="p-3.5 font-semibold text-orange-600 text-xs">${formatDate(r.arrivalDate)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('clientModal').classList.remove('hidden');
+        }
+
+        window.closeClientModal = function() {
+            document.getElementById('clientModal').classList.add('hidden');
+        }
+
+        window.openChartsModal = function() {
+            closeSidebarDrawer();
+            document.getElementById('chartsModal').classList.remove('hidden');
+            renderChartsData();
+        }
+
+        window.closeChartsModal = function() {
+            document.getElementById('chartsModal').classList.add('hidden');
+        }
+
+        function getMonthlyData(statusFilter) {
+            const monthsMap = {
+                '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr',
+                '05': 'Mai', '06': 'Jun', '07': 'Jul', '08': 'Ago',
+                '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'
+            };
+            
+            const counts = {};
+
+            reservations.forEach(r => {
+                let match = false;
+                let dateField = '';
+                if (statusFilter === 'criadas') {
+                    match = true;
+                    dateField = r.creationDate || r.pcpDate;
+                } else if (statusFilter === 'concluida') {
+                    if (r.status === 'concluida') {
+                        match = true;
+                        dateField = r.actionDate || r.arrivalDate;
+                    }
+                } else if (statusFilter === 'cancelada') {
+                    if (r.status === 'cancelada') {
+                        match = true;
+                        dateField = r.actionDate || r.arrivalDate;
+                    }
+                }
+
+                if (match && dateField) {
+                    const parts = dateField.split('-');
+                    if (parts.length === 3) {
+                        const year = parts[0];
+                        const monthKey = parts[1];
+                        const label = `${monthsMap[monthKey] || monthKey}/${year}`;
+                        counts[label] = (counts[label] || 0) + 1;
+                    }
+                }
+            });
+
+            const sortedKeys = Object.keys(counts).sort();
+            const dataValues = sortedKeys.map(k => counts[k]);
+
+            return { labels: sortedKeys, data: dataValues };
+        }
+
+        function renderChartsData() {
+            if (chartCreatedInstance) chartCreatedInstance.destroy();
+            if (chartUsedInstance) chartUsedInstance.destroy();
+            if (chartCanceledInstance) chartCanceledInstance.destroy();
+
+            const createdData = getMonthlyData('criadas');
+            const ctxCreated = document.getElementById('chartCreated').getContext('2d');
+            chartCreatedInstance = new Chart(ctxCreated, {
+                type: 'bar',
+                data: {
+                    labels: createdData.labels.length ? createdData.labels : ['Nenhum dado'],
+                    datasets: [{
+                        label: 'Criadas',
+                        data: createdData.data.length ? createdData.data : [0],
+                        backgroundColor: '#4f46e5',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+
+            const usedData = getMonthlyData('concluida');
+            const ctxUsed = document.getElementById('chartUsed').getContext('2d');
+            chartUsedInstance = new Chart(ctxUsed, {
+                type: 'bar',
+                data: {
+                    labels: usedData.labels.length ? usedData.labels : ['Nenhum dado'],
+                    datasets: [{
+                        label: 'Utilizadas',
+                        data: usedData.data.length ? usedData.data : [0],
+                        backgroundColor: '#10b981',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: type = 'bar',
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+
+            const canceledData = getMonthlyData('cancelada');
+            const ctxCanceled = document.getElementById('chartCanceled').getContext('2d');
+            chartCanceledInstance = new Chart(ctxCanceled, {
+                type: 'bar',
+                data: {
+                    labels: canceledData.labels.length ? canceledData.labels : ['Nenhum dado'],
+                    datasets: [{
+                        label: 'Canceladas',
+                        data: canceledData.data.length ? canceledData.data : [0],
+                        backgroundColor: '#f43f5e',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return dateStr;
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+    </script>
+</body>
+</html>
