@@ -4,937 +4,1138 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PCP - Controle de Reservas de Clientes</title>
-    <!-- Tailwind CSS para estilização moderna e limpa -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome para ícones -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js para os Gráficos -->
+    <!-- Chart.js for analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        navy: {
-                            800: '#1e293b',
-                            900: '#0f172a'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    <!-- SheetJS for real .xlsx parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; font-weight: 400; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        td, th { color: #1e293b !important; }
+        th { font-weight: 700 !important; }
+    </style>
 </head>
-<body class="bg-white min-h-screen text-slate-800 flex flex-col m-0 p-0 w-full overflow-x-hidden">
+<body class="bg-slate-100 text-slate-900 antialiased w-screen h-screen flex flex-col overflow-hidden m-0 p-0">
 
-    <!-- Top Navigation Bar -->
-    <header class="bg-navy-900 text-white px-6 py-4 flex items-center justify-between shadow-md w-full">
-        <div class="flex items-center space-x-4">
-            <!-- Botão do Menu (3 listras) -->
-            <button id="menuBtn" class="text-white focus:outline-none hover:text-slate-300 p-2 rounded-lg transition" title="Menu e Indicadores">
-                <i class="fa-solid fa-bars text-xl"></i>
-            </button>
-            <h1 class="text-lg font-semibold tracking-wide">PCP - Controle de Reservas de Clientes</h1>
-        </div>
-        <div>
-            <button onclick="openNewModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center space-x-2 transition shadow-sm">
-                <i class="fa-solid fa-plus"></i>
-                <span>Nova Reserva</span>
-            </button>
+    <header class="bg-black text-white border-b border-slate-800 shadow-sm flex-shrink-0 z-40">
+        <div class="w-full px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <button onclick="toggleMenu()" class="p-2 rounded-xl hover:bg-slate-800 text-slate-200 transition focus:outline-none shadow-sm border border-slate-700" title="Menu">
+                    <i class="fa-solid fa-bars text-lg"></i>
+                </button>
+                <div>
+                    <h1 class="text-sm sm:text-base font-extrabold tracking-tight text-white">PCP - Controle de Reservas de Clientes</h1>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-700 shadow-inner">
+                    <span class="text-xs font-bold text-slate-300 hidden sm:inline">Unidade:</span>
+                    <select id="globalUnitFilter" onchange="changeGlobalUnit(this.value)" class="bg-transparent text-white text-xs sm:text-sm font-bold focus:outline-none cursor-pointer">
+                        <option value="Ambas" class="bg-slate-900 text-white">Ambas</option>
+                        <option value="MG1" class="bg-slate-900 text-white">MG1</option>
+                        <option value="MG4" class="bg-slate-900 text-white">MG4</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <button onclick="openModal('reservationModal')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center shadow">
+                        <i class="fa-solid fa-plus mr-1.5"></i> Reserva
+                    </button>
+                    <button onclick="openModal('bulkModal')" class="bg-slate-900 hover:bg-slate-800 text-white px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center border border-slate-700 shadow-sm">
+                        <i class="fa-solid fa-file-excel mr-1.5 text-emerald-400"></i> Excel
+                    </button>
+                </div>
+            </div>
         </div>
     </header>
 
-    <!-- Menu Lateral Deslizante (Gaveta) -->
-    <div id="sidebarOverlay" class="fixed inset-0 bg-black/40 z-40 hidden transition-opacity"></div>
-    <aside id="sidebar" class="fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50 transform -translate-x-full transition-transform duration-300 flex flex-col border-r border-slate-200">
-        <div class="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-            <h2 class="font-bold text-slate-800 text-base flex items-center space-x-2">
-                <i class="fa-solid fa-bars-progress text-indigo-600"></i>
-                <span>Menu & Indicadores</span>
-            </h2>
-            <button id="closeSidebar" class="text-slate-500 hover:text-slate-800 p-2 rounded-lg">
+    <!-- Light Theme Side Menu Drawer -->
+    <div id="sideMenuOverlay" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden opacity-0 transition-opacity duration-300" onclick="toggleMenu()"></div>
+    <div id="sideMenu" class="fixed top-0 left-0 bottom-0 w-72 bg-white text-slate-800 z-50 transform -translate-x-full transition-transform duration-300 flex flex-col shadow-2xl border-r border-slate-200">
+        <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 p-2 rounded-xl text-white shadow">
+                    <i class="fa-solid fa-bars-staggered"></i>
+                </div>
+                <span class="font-extrabold text-slate-900 text-base tracking-wide">Menu PCP</span>
+            </div>
+            <button onclick="toggleMenu()" class="text-slate-500 hover:text-slate-800 p-1.5 rounded-xl hover:bg-slate-200 transition">
                 <i class="fa-solid fa-xmark text-lg"></i>
             </button>
         </div>
-        <div class="flex-1 overflow-y-auto p-4 space-y-4">
-            <!-- Links de Navegação de Abas -->
-            <div class="space-y-1">
-                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 mb-2">Navegação</p>
-                <button onclick="switchTab('geral')" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition flex items-center space-x-3 text-slate-700 hover:bg-slate-100">
-                    <i class="fa-solid fa-list-check w-5 text-indigo-600"></i>
-                    <span>Reservas Ativas - Aba Geral</span>
-                </button>
-                <button onclick="openChartsModal()" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition flex items-center space-x-3 text-slate-700 hover:bg-slate-100">
-                    <i class="fa-solid fa-chart-line w-5 text-indigo-600"></i>
-                    <span>Gráficos e Estatísticas</span>
-                </button>
-            </div>
-
-            <hr class="border-slate-200 my-2">
-
-            <!-- Indicadores e Relatórios Rápidos (Acordions) -->
-            <div>
-                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 mb-2">Indicadores e Relatórios</p>
-                
-                <!-- 1. Reservas em Aberto -->
-                <div class="border border-slate-200 rounded-lg mb-2 overflow-hidden shadow-sm">
-                    <button onclick="toggleAccordion('acc-aberto')" class="w-full bg-slate-50 p-3 text-left font-medium text-sm text-slate-700 flex justify-between items-center hover:bg-slate-100 transition">
-                        <span class="flex items-center space-x-2">
-                            <i class="fa-solid fa-clock text-amber-500"></i>
-                            <span>Reservas em Aberto - Tempo</span>
-                        </span>
-                        <i id="icon-acc-aberto" class="fa-solid fa-chevron-down text-xs text-slate-400 transition-transform"></i>
-                    </button>
-                    <div id="acc-aberto" class="hidden p-3 bg-white text-xs space-y-2 border-t border-slate-100">
-                        <p class="text-slate-500">Apenas reservas Disponíveis e Parciais, ordenadas da mais antiga para a mais recente.</p>
-                        <div class="mb-2">
-                            <label class="block font-semibold text-slate-600 mb-1">Filtrar Cliente:</label>
-                            <select id="filterClientAberto" onchange="renderOpenReservations()" class="w-full p-1.5 border border-slate-300 rounded text-xs focus:outline-none focus:border-indigo-500">
-                                <option value="">Todos os Clientes</option>
-                            </select>
-                        </div>
-                        <div id="contentOpenReservations" class="space-y-2 max-h-48 overflow-y-auto"></div>
-                    </div>
-                </div>
-
-                <!-- 2. Clientes com Mais Reservas -->
-                <div class="border border-slate-200 rounded-lg mb-2 overflow-hidden shadow-sm">
-                    <button onclick="toggleAccordion('acc-clientes')" class="w-full bg-slate-50 p-3 text-left font-medium text-sm text-slate-700 flex justify-between items-center hover:bg-slate-100 transition">
-                        <span class="flex items-center space-x-2">
-                            <i class="fa-solid fa-users text-blue-500"></i>
-                            <span>Clientes com Mais Reservas</span>
-                        </span>
-                        <i id="icon-acc-clientes" class="fa-solid fa-chevron-down text-xs text-slate-400 transition-transform"></i>
-                    </button>
-                    <div id="acc-clientes" class="hidden p-3 bg-white text-xs space-y-2 border-t border-slate-100">
-                        <p class="text-slate-500 mb-1">Clique no nome do cliente para ver todas as reservas em tela cheia.</p>
-                        <div id="contentTopClients" class="space-y-1 max-h-48 overflow-y-auto"></div>
-                    </div>
-                </div>
-
-                <!-- 3. Reservas Utilizadas -->
-                <div class="border border-slate-200 rounded-lg mb-2 overflow-hidden shadow-sm">
-                    <button onclick="toggleAccordion('acc-utilizadas')" class="w-full bg-slate-50 p-3 text-left font-medium text-sm text-slate-700 flex justify-between items-center hover:bg-slate-100 transition">
-                        <span class="flex items-center space-x-2">
-                            <i class="fa-solid fa-circle-check text-emerald-500"></i>
-                            <span>Reservas Utilizadas (Concluídas)</span>
-                        </span>
-                        <i id="icon-acc-utilizadas" class="fa-solid fa-chevron-down text-xs text-slate-400 transition-transform"></i>
-                    </button>
-                    <div id="acc-utilizadas" class="hidden p-3 bg-white text-xs space-y-2 border-t border-slate-100">
-                        <div id="contentUsedReservations" class="space-y-2 max-h-48 overflow-y-auto"></div>
-                    </div>
-                </div>
-
-                <!-- 4. Reservas Canceladas -->
-                <div class="border border-slate-200 rounded-lg mb-2 overflow-hidden shadow-sm">
-                    <button onclick="toggleAccordion('acc-canceladas')" class="w-full bg-slate-50 p-3 text-left font-medium text-sm text-slate-700 flex justify-between items-center hover:bg-slate-100 transition">
-                        <span class="flex items-center space-x-2">
-                            <i class="fa-solid fa-ban text-rose-500"></i>
-                            <span>Reservas Canceladas</span>
-                        </span>
-                        <i id="icon-acc-canceladas" class="fa-solid fa-chevron-down text-xs text-slate-400 transition-transform"></i>
-                    </button>
-                    <div id="acc-canceladas" class="hidden p-3 bg-white text-xs space-y-2 border-t border-slate-100">
-                        <div id="contentCanceledReservations" class="space-y-2 max-h-48 overflow-y-auto"></div>
-                    </div>
-                </div>
-            </div>
+        <div class="flex-grow py-4 px-3 space-y-2 overflow-y-auto custom-scrollbar">
+            <button onclick="switchTab('geral'); toggleMenu();" id="menu-geral" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition text-white bg-indigo-600 shadow">
+                <i class="fa-solid fa-table-cells w-5 text-center"></i>
+                <span>Geral</span>
+            </button>
+            <button onclick="switchTab('aberto'); toggleMenu();" id="menu-aberto" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-slate-100 hover:text-slate-900 text-slate-700">
+                <i class="fa-solid fa-clock-rotate-left w-5 text-center text-amber-600"></i>
+                <span>Reservas em Aberto</span>
+            </button>
+            <button onclick="switchTab('clientes'); toggleMenu();" id="menu-clientes" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-slate-100 hover:text-slate-900 text-slate-700">
+                <i class="fa-solid fa-users-rectangle w-5 text-center text-sky-600"></i>
+                <span>Clientes com mais reservas</span>
+            </button>
+            <button onclick="switchTab('concluidas'); toggleMenu();" id="menu-concluidas" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-slate-100 hover:text-slate-900 text-slate-700">
+                <i class="fa-solid fa-circle-check w-5 text-center text-emerald-600"></i>
+                <span>Reservas Concluídas</span>
+            </button>
+            <button onclick="switchTab('canceladas'); toggleMenu();" id="menu-canceladas" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-slate-100 hover:text-slate-900 text-slate-700">
+                <i class="fa-solid fa-circle-xmark w-5 text-center text-rose-600"></i>
+                <span>Reservas Canceladas</span>
+            </button>
+            <button onclick="switchTab('grafico'); toggleMenu();" id="menu-grafico" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-slate-100 hover:text-slate-900 text-slate-700">
+                <i class="fa-solid fa-chart-pie w-5 text-center text-indigo-600"></i>
+                <span>Gráficos & Análises</span>
+            </button>
         </div>
-    </aside>
+        <div class="p-4 border-t border-slate-200 text-xs text-slate-500 text-center bg-slate-50 font-medium">
+            PCP System v2.8 &bull; Firebase Sync
+        </div>
+    </div>
 
-    <!-- Main Content Container -->
-    <main class="flex-1 w-full px-6 py-6 bg-white flex flex-col">
+    <main class="flex-grow w-full h-full overflow-hidden flex flex-col p-4 sm:p-6 bg-slate-100">
         
-        <!-- Controls Bar: Search, Unit Filter, Batch Actions -->
-        <div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-6 w-full">
-            <div class="flex items-center space-x-4 w-full md:w-auto flex-1">
-                <!-- Search Bar -->
-                <div class="relative w-full md:w-80">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-                        <i class="fa-solid fa-magnifying-glass text-sm"></i>
-                    </span>
-                    <input type="text" id="searchInput" oninput="filterTable()" placeholder="Buscar por cliente, item ou descrição..." class="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-indigo-500 shadow-sm">
+        <!-- Tab 1: Geral -->
+        <div id="tab-geral" class="tab-content flex flex-col h-full w-full">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-4 flex flex-col md:flex-row items-center justify-between gap-3 flex-shrink-0">
+                <div class="flex items-center space-x-3 w-full md:w-auto">
+                    <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
+                        <i class="fa-solid fa-table-cells text-indigo-600 mr-2"></i> Tabela Geral de Reservas
+                    </h2>
+                    <span id="geralCountBadge" class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-full">0 itens</span>
                 </div>
-
-                <!-- Unit Filter -->
-                <div class="relative w-60">
-                    <select id="unitFilter" onchange="filterTable()" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-indigo-500 shadow-sm appearance-none cursor-pointer">
-                        <option value="AMBAS">Ambas as Unidades (AMBAS)</option>
-                    </select>
-                    <span class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-500">
-                        <i class="fa-solid fa-chevron-down text-xs"></i>
-                    </span>
+                <div class="flex items-center space-x-3 w-full md:w-auto justify-end flex-wrap gap-2">
+                    <div class="relative w-full sm:w-64">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-search text-xs"></i>
+                        </span>
+                        <input type="text" id="geralSearch" oninput="renderGeral()" placeholder="Filtrar por Máquina, Cliente ou Item..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
                 </div>
             </div>
 
-            <!-- Batch Action Button -->
-            <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
-                <button onclick="confirmSelectedBatch()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center space-x-2">
-                    <i class="fa-solid fa-check-double text-xs"></i>
-                    <span>Confirmar Selecionadas</span>
-                </button>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 flex-grow flex flex-col overflow-hidden">
+                <div class="overflow-x-auto custom-scrollbar flex-grow">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200 sticky top-0 z-10">
+                                <th class="py-3 px-4">Máquina</th>
+                                <th class="py-3 px-4">Cliente</th>
+                                <th class="py-3 px-4">Item</th>
+                                <th class="py-3 px-4">Descrição</th>
+                                <th class="py-3 px-4">Qtd Disp.</th>
+                                <th class="py-3 px-4">Unid.</th>
+                                <th class="py-3 px-4">Status</th>
+                                <th class="py-3 px-4">Chegada</th>
+                                <th class="py-3 px-4">Data PCP</th>
+                                <th class="py-3 px-4 text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="geralTableBody" class="divide-y divide-slate-200 text-xs sm:text-sm font-medium">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="geralEmpty" class="hidden text-center py-12">
+                    <div class="text-slate-400 text-4xl mb-3"><i class="fa-solid fa-folder-open"></i></div>
+                    <p class="text-slate-700 font-semibold text-sm">Nenhuma reserva encontrada para os filtros atuais.</p>
+                </div>
             </div>
         </div>
 
-        <!-- Main Data Table Card -->
-        <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col w-full">
-            <div class="overflow-x-auto flex-1">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                            <th class="p-3.5 w-10 text-center">
-                                <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
-                            </th>
-                            <th class="p-3.5">Máquina</th>
-                            <th class="p-3.5">Item</th>
-                            <th class="p-3.5">Cliente</th>
-                            <th class="p-3.5">Qtd. Disponível</th>
-                            <th class="p-3.5">Descrição</th>
-                            <th class="p-3.5">Data PCP</th>
-                            <th class="p-3.5">Disponibilidade</th>
-                            <th class="p-3.5 text-orange-600 font-bold">Data de Chegada</th>
-                            <th class="p-3.5 text-center">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="reservasTableBody" class="divide-y divide-slate-100 text-sm">
-                        <!-- Inserido dinamicamente via JavaScript -->
-                    </tbody>
-                    <!-- Rodapé com Auto Soma -->
-                    <tfoot>
-                        <tr class="bg-slate-50 border-t-2 border-slate-200 font-bold text-slate-700 text-sm">
-                            <td colspan="4" class="p-3.5 text-right uppercase tracking-wider text-xs">Total Geral Disponível:</td>
-                            <td id="totalSumQuantity" class="p-3.5 text-indigo-600">0 KG</td>
-                            <td colspan="5"></td>
-                        </tr>
-                    </tfoot>
-                </table>
+        <!-- Tab 2: Reservas em Aberto -->
+        <div id="tab-aberto" class="tab-content flex flex-col h-full w-full hidden">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-4 flex flex-col md:flex-row items-center justify-between gap-3 flex-shrink-0">
+                <div class="flex items-center space-x-3 w-full md:w-auto">
+                    <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
+                        <i class="fa-solid fa-clock-rotate-left text-amber-600 mr-2"></i> Reservas Disponíveis em Aberto
+                    </h2>
+                </div>
+                <div class="w-full md:w-72">
+                    <input type="text" id="abertoClientFilter" oninput="renderAberto()" placeholder="Filtrar por nome do cliente..." class="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 flex-grow flex flex-col overflow-hidden">
+                <div class="overflow-x-auto custom-scrollbar flex-grow">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200 sticky top-0 z-10">
+                                <th class="py-3 px-4">Cliente</th>
+                                <th class="py-3 px-4">Máquina</th>
+                                <th class="py-3 px-4">Item</th>
+                                <th class="py-3 px-4">Descrição</th>
+                                <th class="py-3 px-4">Qtd Disp.</th>
+                                <th class="py-3 px-4">Unidade</th>
+                                <th class="py-3 px-4">Tempo em Aberto</th>
+                                <th class="py-3 px-4">Data Chegada</th>
+                            </tr>
+                        </thead>
+                        <tbody id="abertoTableBody" class="divide-y divide-slate-200 text-xs sm:text-sm font-medium"></tbody>
+                    </table>
+                </div>
+                <div id="abertoEmpty" class="hidden text-center py-12">
+                    <p class="text-slate-700 font-semibold text-sm">Nenhuma reserva aberta disponível no momento.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Clientes com mais reservas -->
+        <div id="tab-clientes" class="tab-content flex flex-col h-full w-full hidden">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-4 flex-shrink-0">
+                <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
+                    <i class="fa-solid fa-users-rectangle text-indigo-600 mr-2"></i> Clientes com Mais Reservas em Aberto
+                </h2>
+                <p class="text-xs text-slate-600 font-medium mt-0.5">Clique no nome de um cliente para inspecionar suas reservas ativas (ordenado por ordem crescente de volume/demanda).</p>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-grow overflow-hidden">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-y-auto custom-scrollbar p-3">
+                    <div id="clientListContainer" class="space-y-2">
+                        <!-- Client cards generated here -->
+                    </div>
+                </div>
+                <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+                    <div class="p-3 bg-slate-100 border-b border-slate-200 font-bold text-xs text-slate-800 uppercase" id="clientDetailHeader">
+                        Selecione um cliente ao lado
+                    </div>
+                    <div class="overflow-x-auto custom-scrollbar flex-grow">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                                    <th class="py-2.5 px-3">Máquina</th>
+                                    <th class="py-2.5 px-3">Item</th>
+                                    <th class="py-2.5 px-3">Qtd</th>
+                                    <th class="py-2.5 px-3">Status</th>
+                                    <th class="py-2.5 px-3">Data PCP</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clientDetailTableBody" class="divide-y divide-slate-200 text-xs font-medium"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: Reservas Concluídas -->
+        <div id="tab-concluidas" class="tab-content flex flex-col h-full w-full hidden">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-4 flex-shrink-0">
+                <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
+                    <i class="fa-solid fa-circle-check text-emerald-600 mr-2"></i> Histórico de Reservas Concluídas
+                </h2>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 flex-grow flex flex-col overflow-hidden">
+                <div class="overflow-x-auto custom-scrollbar flex-grow">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200 sticky top-0 z-10">
+                                <th class="py-3 px-4">Cliente</th>
+                                <th class="py-3 px-4">Máquina</th>
+                                <th class="py-3 px-4">Item</th>
+                                <th class="py-3 px-4">Descrição</th>
+                                <th class="py-3 px-4">Qtd</th>
+                                <th class="py-3 px-4">Unidade</th>
+                                <th class="py-3 px-4">Usuário Responsável</th>
+                                <th class="py-3 px-4">Data Conclusão</th>
+                            </tr>
+                        </thead>
+                        <tbody id="concluidasTableBody" class="divide-y divide-slate-200 text-xs sm:text-sm font-medium"></tbody>
+                    </table>
+                </div>
+                <div id="concluidasEmpty" class="hidden text-center py-12">
+                    <p class="text-slate-700 font-semibold text-sm">Nenhuma reserva concluída registrada.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 5: Reservas Canceladas -->
+        <div id="tab-canceladas" class="tab-content flex flex-col h-full w-full hidden">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-4 flex-shrink-0">
+                <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
+                    <i class="fa-solid fa-circle-xmark text-rose-600 mr-2"></i> Histórico de Reservas Canceladas
+                </h2>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 flex-grow flex flex-col overflow-hidden">
+                <div class="overflow-x-auto custom-scrollbar flex-grow">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200 sticky top-0 z-10">
+                                <th class="py-3 px-4">Cliente</th>
+                                <th class="py-3 px-4">Máquina</th>
+                                <th class="py-3 px-4">Item</th>
+                                <th class="py-3 px-4">Descrição</th>
+                                <th class="py-3 px-4">Qtd</th>
+                                <th class="py-3 px-4">Unidade</th>
+                                <th class="py-3 px-4">Usuário Responsável</th>
+                                <th class="py-3 px-4">Data Cancelamento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="canceladasTableBody" class="divide-y divide-slate-200 text-xs sm:text-sm font-medium"></tbody>
+                    </table>
+                </div>
+                <div id="canceladasEmpty" class="hidden text-center py-12">
+                    <p class="text-slate-700 font-semibold text-sm">Nenhuma reserva cancelada registrada.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 6: Gráficos -->
+        <div id="tab-grafico" class="tab-content flex flex-col h-full w-full overflow-y-auto custom-scrollbar hidden space-y-6">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex-shrink-0 flex items-center justify-between">
+                <div>
+                    <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
+                        <i class="fa-solid fa-chart-pie text-indigo-600 mr-2"></i> Análise Gráfica Mensal
+                    </h2>
+                    <p class="text-xs text-slate-600 font-medium mt-0.5">Visualização de chegadas, conclusões e cancelamentos por unidade com listas de clientes.</p>
+                </div>
+            </div>
+
+            <!-- Gráfico 1: Unidade MG1 -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 flex flex-col">
+                    <h3 class="font-bold text-slate-900 text-sm mb-3">Unidade MG1 - Movimentação Mensal</h3>
+                    <div class="relative h-64 w-full">
+                        <canvas id="chartMG1"></canvas>
+                    </div>
+                </div>
+                <div class="flex flex-col border-t lg:border-t-0 lg:border-l border-slate-200 lg:pl-6 pt-4 lg:pt-0">
+                    <h4 class="font-bold text-xs uppercase text-slate-700 mb-2">Clientes Correspondentes (MG1)</h4>
+                    <div id="listMG1" class="space-y-1.5 overflow-y-auto custom-scrollbar max-h-56 text-xs font-medium"></div>
+                </div>
+            </div>
+
+            <!-- Gráfico 2: Unidade MG4 -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 flex flex-col">
+                    <h3 class="font-bold text-slate-900 text-sm mb-3">Unidade MG4 - Movimentação Mensal</h3>
+                    <div class="relative h-64 w-full">
+                        <canvas id="chartMG4"></canvas>
+                    </div>
+                </div>
+                <div class="flex flex-col border-t lg:border-t-0 lg:border-l border-slate-200 lg:pl-6 pt-4 lg:pt-0">
+                    <h4 class="font-bold text-xs uppercase text-slate-700 mb-2">Clientes Correspondentes (MG4)</h4>
+                    <div id="listMG4" class="space-y-1.5 overflow-y-auto custom-scrollbar max-h-56 text-xs font-medium"></div>
+                </div>
+            </div>
+
+            <!-- Gráfico 3: MG1 e MG4 Juntos -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 flex flex-col">
+                    <h3 class="font-bold text-slate-900 text-sm mb-3">Consolidado (MG1 & MG4) - Movimentação Mensal</h3>
+                    <div class="relative h-64 w-full">
+                        <canvas id="chartBoth"></canvas>
+                    </div>
+                </div>
+                <div class="flex flex-col border-t lg:border-t-0 lg:border-l border-slate-200 lg:pl-6 pt-4 lg:pt-0">
+                    <h4 class="font-bold text-xs uppercase text-slate-700 mb-2">Clientes Correspondentes (Geral)</h4>
+                    <div id="listBoth" class="space-y-1.5 overflow-y-auto custom-scrollbar max-h-56 text-xs font-medium"></div>
+                </div>
             </div>
         </div>
 
     </main>
 
-    <!-- Modal Nova Reserva -->
-    <div id="newModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all">
-            <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
-                <h3 class="font-semibold text-base">Nova Reserva de Cliente</h3>
-                <button onclick="closeNewModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+    
+    <!-- Modal: Nova Reserva -->
+    <div id="reservationModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="resModalContainer">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <h3 class="font-bold text-slate-900 text-base">Nova Reserva de Cliente</h3>
+                <button onclick="closeModal('reservationModal')" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-            <form id="newReservationForm" onsubmit="handleNewReservation(event)" class="p-6 space-y-4">
+            <form id="reservationForm" onsubmit="saveReservation(event)" class="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Máquina</label>
-                        <input type="text" id="newMachine" required placeholder="Ex: Prensa 01" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Máquina</label>
+                        <input type="text" id="resMachine" required placeholder="Ex: Torno CNC 01" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Item</label>
-                        <input type="text" id="newItem" required placeholder="Ex: IT-4021" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Cliente</label>
+                        <input type="text" id="resClient" required placeholder="Ex: Indústria Metal MG" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Item</label>
+                        <input type="text" id="resItem" required placeholder="Ex: Eixo Aço 1040" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Quantidade Disponível</label>
+                        <input type="number" id="resQty" min="1" required placeholder="Ex: 50" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Cliente</label>
-                    <input type="text" id="newClient" required placeholder="Nome do Cliente" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Descrição</label>
+                    <input type="text" id="resDesc" required placeholder="Ex: Peça temperada e retificada" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-3 gap-3">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Quantidade Disponível (KG)</label>
-                        <input type="number" id="newQuantity" required step="0.001" placeholder="3400" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Unidade</label>
-                        <select id="newUnit" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Unidade</label>
+                        <select id="resUnit" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                             <option value="MG1">MG1</option>
                             <option value="MG4">MG4</option>
                         </select>
                     </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Descrição</label>
-                    <input type="text" id="newDescription" required placeholder="Descrição do material" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Data PCP</label>
-                        <input type="date" id="newPcpDate" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Data Chegada</label>
+                        <input type="date" id="resArrivalDate" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-orange-600 uppercase mb-1">Data de Chegada</label>
-                        <input type="date" id="newArrivalDate" required class="w-full px-3 py-2 border border-orange-300 rounded-lg text-sm focus:outline-none focus:border-orange-500">
+                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Data PCP</label>
+                        <input type="date" id="resPcpDate" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                 </div>
-                <div class="pt-4 flex justify-end space-x-3 border-t border-slate-200">
-                    <button type="button" onclick="closeNewModal()" class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition">Cancelar</button>
-                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition shadow-sm">Cadastrar Reserva</button>
+                <div class="pt-4 flex items-center justify-end space-x-3 border-t border-slate-200">
+                    <button type="button" onclick="closeModal('reservationModal')" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-4 py-2 rounded-xl text-sm font-bold">Cancelar</button>
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow">Cadastrar Reserva</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Modal de Gráficos e Estatísticas Mensais -->
-    <div id="chartsModal" class="fixed inset-0 bg-white z-50 hidden flex flex-col overflow-y-auto">
-        <div class="bg-slate-900 text-white px-8 py-4 flex items-center justify-between shadow-md">
-            <div class="flex items-center space-x-4">
-                <button onclick="closeChartsModal()" class="text-white hover:text-slate-300 p-2 rounded-lg transition" title="Voltar">
-                    <i class="fa-solid fa-arrow-left text-xl"></i>
-                </button>
-                <h2 class="text-lg font-bold">Estatísticas Mensais - Gráficos de Reservas</h2>
-            </div>
-            <div>
-                <button onclick="closeChartsModal()" class="text-slate-400 hover:text-white p-2 rounded-lg">
-                    <i class="fa-solid fa-xmark text-xl"></i>
+    <!-- Modal: Inserção em Massa Excel (.xlsx) -->
+    <div id="bulkModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="bulkModalContainer">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <h3 class="font-bold text-slate-900 text-base">Inserir em Massa (Arquivo Excel .xlsx)</h3>
+                <button onclick="closeModal('bulkModal')" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-        </div>
-        <div class="p-8 flex-1 max-w-7xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-            <!-- Gráfico 1: Criadas -->
-            <div class="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col">
-                <h3 class="font-bold text-slate-800 text-sm mb-3 flex items-center space-x-2">
-                    <i class="fa-solid fa-chart-bar text-indigo-600"></i>
-                    <span>Total de Reservas Criadas por Mês</span>
-                </h3>
-                <div class="relative h-72 w-full">
-                    <canvas id="chartCreated"></canvas>
+            <div class="p-6 space-y-4">
+                <p class="text-xs text-slate-700 font-medium">Baixe o modelo oficial com cada campo em uma coluna, preencha no Excel e selecione o arquivo abaixo para refletir na aba Geral.</p>
+                
+                <button onclick="downloadExcelTemplate()" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 py-2.5 rounded-xl text-sm font-bold transition flex items-center justify-center space-x-2 shadow-sm">
+                    <i class="fa-solid fa-download"></i>
+                    <span>Baixar Modelo do Excel (.xlsx)</span>
+                </button>
+
+                <div class="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center bg-slate-50 hover:bg-slate-100 transition">
+                    <label class="cursor-pointer flex flex-col items-center">
+                        <i class="fa-solid fa-file-excel text-emerald-600 text-2xl mb-2"></i>
+                        <span id="fileNameLabel" class="text-xs font-bold text-slate-700">Selecione ou arraste o arquivo .xlsx preenchido</span>
+                        <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" onchange="handleExcelFileSelect(event)" class="hidden">
+                    </label>
                 </div>
-            </div>
-            <!-- Gráfico 2: Utilizadas -->
-            <div class="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col">
-                <h3 class="font-bold text-slate-800 text-sm mb-3 flex items-center space-x-2">
-                    <i class="fa-solid fa-chart-bar text-emerald-600"></i>
-                    <span>Total de Reservas Utilizadas por Mês</span>
-                </h3>
-                <div class="relative h-72 w-full">
-                    <canvas id="chartUsed"></canvas>
-                </div>
-            </div>
-            <!-- Gráfico 3: Canceladas -->
-            <div class="bg-white border border-slate-200 p-5 rounded-xl shadow-sm flex flex-col">
-                <h3 class="font-bold text-slate-800 text-sm mb-3 flex items-center space-x-2">
-                    <i class="fa-solid fa-chart-bar text-rose-600"></i>
-                    <span>Total de Reservas Canceladas por Mês</span>
-                </h3>
-                <div class="relative h-72 w-full">
-                    <canvas id="chartCanceled"></canvas>
+
+                <div class="flex items-center justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeModal('bulkModal')" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-4 py-2 rounded-xl text-sm font-bold">Cancelar</button>
+                    <button type="button" onclick="processExcelImport()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow">Incluir no Geral</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal de Tela Cheia para Detalhes do Cliente -->
-    <div id="clientModal" class="fixed inset-0 bg-white z-50 hidden flex flex-col overflow-y-auto">
-        <div class="bg-slate-900 text-white px-8 py-4 flex items-center justify-between shadow-md">
-            <div class="flex items-center space-x-4">
-                <button onclick="closeClientModal()" class="text-white hover:text-slate-300 p-2 rounded-lg transition" title="Voltar">
-                    <i class="fa-solid fa-arrow-left text-xl"></i>
-                </button>
-                <h2 id="clientModalTitle" class="text-lg font-bold">Todas as Reservas do Cliente</h2>
-            </div>
-            <div class="flex items-center space-x-3">
-                <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center space-x-2 transition shadow-sm">
-                    <i class="fa-solid fa-file-pdf"></i>
-                    <span>PDF</span>
-                </button>
-                <button onclick="closeClientModal()" class="text-slate-400 hover:text-white p-2 rounded-lg">
-                    <i class="fa-solid fa-xmark text-xl"></i>
+    <!-- Modal: Editar Quantidade -->
+    <div id="qtyModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-xl max-w-xs w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="qtyModalContainer">
+            <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <h3 class="font-bold text-slate-900 text-sm">Editar Quantidade Disponível</h3>
+                <button onclick="closeModal('qtyModal')" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-        </div>
-        <div class="p-8 flex-1 max-w-7xl mx-auto w-full">
-            <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                            <th class="p-3.5">Máquina</th>
-                            <th class="p-3.5">Item</th>
-                            <th class="p-3.5">Unidade</th>
-                            <th class="p-3.5">Qtd. Disponível</th>
-                            <th class="p-3.5">Descrição</th>
-                            <th class="p-3.5">Data PCP</th>
-                            <th class="p-3.5">Disponibilidade</th>
-                            <th class="p-3.5 text-orange-600 font-bold">Data de Chegada</th>
-                        </tr>
-                    </thead>
-                    <tbody id="clientModalTableBody" class="divide-y divide-slate-100 text-sm"></tbody>
-                </table>
+            <div class="p-5 space-y-4">
+                <input type="hidden" id="editQtyId">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Nova Quantidade</label>
+                    <input type="number" id="newQtyInput" min="0" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <p class="text-xs text-slate-600 font-medium mt-1">Se a quantidade for menor que a original, o status mudará para <span class="text-amber-700 font-bold">Parcial</span> (amarelo).</p>
+                </div>
+                <div class="flex items-center justify-end space-x-2">
+                    <button onclick="closeModal('qtyModal')" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-3 py-1.5 rounded-xl text-xs font-bold">Cancelar</button>
+                    <button onclick="confirmEditQty()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-xl text-xs font-bold shadow">Salvar</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Script Principal com Firebase Firestore Integrado -->
+    <!-- Modal: Janela de Confirmação para Ações (Concluir / Cancelar) -->
+    <div id="actionModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="actionModalContainer">
+            <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <h3 class="font-bold text-slate-900 text-sm" id="actionModalTitle">Confirmação de Ação</h3>
+                <button onclick="closeModal('actionModal')" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <input type="hidden" id="actionTargetId">
+                <input type="hidden" id="actionTargetType">
+                <p id="actionModalText" class="text-xs sm:text-sm text-slate-800 font-medium">Tem certeza que deseja prosseguir com esta ação?</p>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Seu Nome (Responsável)</label>
+                    <input type="text" id="actionUserName" required placeholder="Ex: Carlos Silva" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex items-center justify-end space-x-2 pt-2">
+                    <button onclick="closeModal('actionModal')" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-3 py-1.5 rounded-xl text-xs font-bold">Cancelar</button>
+                    <button onclick="executeAction()" id="actionConfirmBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-xl text-xs font-bold shadow">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center space-x-3 border border-slate-800">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMessage" class="text-xs sm:text-sm font-bold text-white">Ação realizada com sucesso!</span>
+    </div>
+
+    <!-- Firebase SDKs (Modular v10) -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, addDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
+        // Substitua com as configurações do seu projeto do Firebase
         const firebaseConfig = {
-            apiKey: "AIzaSyCtZG8GZS4CTdiFJQJQgncn8rGxtUvNMLs",
-            authDomain: "dados-pcp.firebaseapp.com",
-            projectId: "dados-pcp",
-            storageBucket: "dados-pcp.firebasestorage.app",
-            messagingSenderId: "674776626674",
-            appId: "1:674776626674:web:c582e4736a136d8777e76b",
-            measurementId: "G-9RM5EFDD1S"
+            apiKey: "SEU_API_KEY",
+            authDomain: "SEU_AUTH_DOMAIN",
+            projectId: "SEU_PROJECT_ID",
+            storageBucket: "SEU_STORAGE_BUCKET",
+            messagingSenderId: "SEU_MESSAGING_SENDER_ID",
+            appId: "SEU_APP_ID"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        let reservations = [];
+        // Armazenamentos locais globais alimentados pelo Firebase
+        window.reservations = [];
+        window.completedReservations = [];
+        window.cancelledReservations = [];
 
-        let chartCreatedInstance = null;
-        let chartUsedInstance = null;
-        let chartCanceledInstance = null;
+        window.currentGlobalUnit = 'Ambas';
+        window.chartsInstance = { mg1: null, mg4: null, both: null };
+        window.parsedExcelData = null;
 
-        document.addEventListener('DOMContentLoaded', async () => {
-            initSidebar();
-            await fetchReservationsFromFirebase();
-        });
-
-        async function fetchReservationsFromFirebase() {
-            try {
-                const querySnapshot = await getDocs(collection(db, "reservas"));
-                reservations = [];
-                querySnapshot.forEach((docSnap) => {
-                    reservations.push({ idFirebase: docSnap.id, ...docSnap.data() });
+        // Inicialização em Tempo Real (Listeners do Firestore)
+        window.initFirebaseListeners = function() {
+            // Ouvir Reservas Ativas
+            onSnapshot(collection(db, "reservations"), (snapshot) => {
+                window.reservations = [];
+                snapshot.forEach((docSnap) => {
+                    window.reservations.push({ id: docSnap.id, ...docSnap.data() });
                 });
-                renderTable();
-                updateIndicatorsContent();
-            } catch (error) {
-                console.error("Erro ao carregar dados do Firebase: ", error);
-            }
-        }
-
-        const menuBtn = document.getElementById('menuBtn');
-        const sidebar = document.getElementById('sidebar');
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
-        const closeSidebar = document.getElementById('closeSidebar');
-
-        function openSidebar() {
-            sidebar.classList.remove('-translate-x-full');
-            sidebarOverlay.classList.remove('hidden');
-            updateIndicatorsContent();
-        }
-
-        function closeSidebarDrawer() {
-            sidebar.classList.add('-translate-x-full');
-            sidebarOverlay.classList.add('hidden');
-        }
-
-        menuBtn.addEventListener('click', openSidebar);
-        closeSidebar.addEventListener('click', closeSidebarDrawer);
-        sidebarOverlay.addEventListener('click', closeSidebarDrawer);
-
-        window.switchTab = function(tabName) {
-            closeSidebarDrawer();
-        }
-
-        window.toggleAccordion = function(id) {
-            const el = document.getElementById(id);
-            const icon = document.getElementById('icon-' + id);
-            if (el.classList.contains('hidden')) {
-                el.classList.remove('hidden');
-                icon.classList.add('rotate-180');
-            } else {
-                el.classList.add('hidden');
-                icon.classList.remove('rotate-180');
-            }
-        }
-
-        function updateIndicatorsContent() {
-            renderOpenReservations();
-            renderTopClients();
-            renderUsedReservations();
-            renderCanceledReservations();
-            populateClientFilter();
-        }
-
-        function renderOpenReservations() {
-            const clientFilter = document.getElementById('filterClientAberto').value;
-            const container = document.getElementById('contentOpenReservations');
-            
-            let openRes = reservations.filter(r => r.status === 'ativa');
-            if (clientFilter) {
-                openRes = openRes.filter(r => r.client === clientFilter);
-            }
-
-            openRes.sort((a, b) => new Date(a.arrivalDate) - new Date(b.arrivalDate));
-
-            if (openRes.length === 0) {
-                container.innerHTML = '<p class="text-slate-400 italic">Nenhuma reserva aberta encontrada.</p>';
-                return;
-            }
-
-            container.innerHTML = openRes.map(r => {
-                const badge = getAutomaticAvailabilityBadge(r.quantity, r.originalQuantity);
-                const permanenceDays = calculatePermanenceDays(r.arrivalDate, new Date().toISOString().split('T')[0]);
-                return `
-                    <div class="p-2 border border-slate-200 rounded bg-slate-50 flex flex-col space-y-1">
-                        <div class="flex justify-between font-semibold text-slate-800">
-                            <span>${r.client}</span>
-                            <span class="text-indigo-600">${r.quantity} KG</span>
-                        </div>
-                        <div class="text-slate-500 flex justify-between">
-                            <span>Item: ${r.item} (${r.machine})</span>
-                            <span class="font-medium text-amber-600">Permanência: ${permanenceDays} dias</span>
-                        </div>
-                        <div>${badge}</div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function populateClientFilter() {
-            const select = document.getElementById('filterClientAberto');
-            const clients = [...new Set(reservations.map(r => r.client))];
-            const currentVal = select.value;
-            select.innerHTML = '<option value="">Todos os Clientes</option>' + clients.map(c => `<option value="${c}">${c}</option>`).join('');
-            select.value = currentVal;
-        }
-
-        function renderTopClients() {
-            const container = document.getElementById('contentTopClients');
-            const activeRes = reservations.filter(r => r.status === 'ativa');
-            
-            const counts = {};
-            activeRes.forEach(r => {
-                counts[r.client] = (counts[r.client] || 0) + 1;
+                refreshAllViews();
             });
 
-            const sortedClients = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+            // Ouvir Reservas Concluídas
+            onSnapshot(collection(db, "completedReservations"), (snapshot) => {
+                window.completedReservations = [];
+                snapshot.forEach((docSnap) => {
+                    window.completedReservations.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                refreshAllViews();
+            });
+
+            // Ouvir Reservas Canceladas
+            onSnapshot(collection(db, "cancelledReservations"), (snapshot) => {
+                window.cancelledReservations = [];
+                snapshot.forEach((docSnap) => {
+                    window.cancelledReservations.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                refreshAllViews();
+            });
+        };
+
+        // Funções Globais de Escrita no Firestore
+        window.fbAddReservation = async function(data) {
+            await addDoc(collection(db, "reservations"), data);
+        };
+
+        window.fbUpdateReservationQty = async function(id, newQty, newStatus) {
+            const ref = doc(db, "reservations", id);
+            await updateDoc(ref, { qty: newQty, status: newStatus });
+        };
+
+        window.fbMoveToCompleted = async function(item, userName, today) {
+            await addDoc(collection(db, "completedReservations"), {
+                machine: item.machine,
+                client: item.client,
+                item: item.item,
+                desc: item.desc,
+                qty: item.qty,
+                unit: item.unit,
+                user: userName,
+                date: today
+            });
+            await deleteDoc(doc(db, "reservations", item.id));
+        };
+
+        window.fbMoveToCancelled = async function(item, userName, today) {
+            await addDoc(collection(db, "cancelledReservations"), {
+                machine: item.machine,
+                client: item.client,
+                item: item.item,
+                desc: item.desc,
+                qty: item.qty,
+                unit: item.unit,
+                user: userName,
+                date: today
+            });
+            await deleteDoc(doc(db, "reservations", item.id));
+        };
+
+        // Inicializar app ao carregar a página
+        window.onload = function() {
+            initFirebaseListeners();
+            switchTab('geral');
+        };
+    </script>
+
+    <script>
+        // Funções de Interface e Regras de Negócio
+        function changeGlobalUnit(val) {
+            currentGlobalUnit = val;
+            refreshAllViews();
+            showToast('Filtro de unidade aplicado: ' + val);
+        }
+
+        function getFilteredReservations() {
+            if (currentGlobalUnit === 'Ambas') return reservations;
+            return reservations.filter(r => r.unit === currentGlobalUnit);
+        }
+
+        function getFilteredCompleted() {
+            if (currentGlobalUnit === 'Ambas') return completedReservations;
+            return completedReservations.filter(r => r.unit === currentGlobalUnit);
+        }
+
+        function getFilteredCancelled() {
+            if (currentGlobalUnit === 'Ambas') return cancelledReservations;
+            return cancelledReservations.filter(r => r.unit === currentGlobalUnit);
+        }
+
+        function toggleMenu() {
+            const menu = document.getElementById('sideMenu');
+            const overlay = document.getElementById('sideMenuOverlay');
+            const isOpen = !menu.classList.contains('-translate-x-full');
+            if (isOpen) {
+                menu.classList.add('-translate-x-full');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+            } else {
+                overlay.classList.remove('hidden');
+                setTimeout(() => {
+                    overlay.classList.remove('opacity-0');
+                    menu.classList.remove('-translate-x-full');
+                }, 10);
+            }
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+
+            document.querySelectorAll('#sideMenu button[id^="menu-"]').forEach(btn => {
+                btn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-slate-100 hover:text-slate-900 text-slate-700";
+            });
+            const activeMenu = document.getElementById('menu-' + tabId);
+            if (activeMenu) {
+                activeMenu.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition text-white bg-indigo-600 shadow";
+            }
+
+            refreshAllViews();
+        }
+
+        function refreshAllViews() {
+            renderGeral();
+            renderAberto();
+            renderClientes();
+            renderConcluidas();
+            renderCanceladas();
+            renderCharts();
+        }
+
+        function renderGeral() {
+            const query = (document.getElementById('geralSearch').value || '').toLowerCase();
+            const list = getFilteredReservations().filter(item => 
+                (item.machine || '').toLowerCase().includes(query) || 
+                (item.client || '').toLowerCase().includes(query) || 
+                (item.item || '').toLowerCase().includes(query) ||
+                (item.desc || '').toLowerCase().includes(query)
+            );
+
+            const tbody = document.getElementById('geralTableBody');
+            const empty = document.getElementById('geralEmpty');
+            tbody.innerHTML = '';
+
+            document.getElementById('geralCountBadge').innerText = list.length + ' itens';
+
+            if (list.length === 0) {
+                empty.classList.remove('hidden');
+            } else {
+                empty.classList.add('hidden');
+                list.forEach(item => {
+                    const statusBadge = item.status === 'Disponível' 
+                        ? '<span class="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">Disponível</span>'
+                        : '<span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">Parcial</span>';
+
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-50 transition-colors";
+                    tr.innerHTML = `
+                        <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(item.machine)}</td>
+                        <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(item.client)}</td>
+                        <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.item)}</td>
+                        <td class="py-3 px-4 text-slate-700 text-xs font-medium">${escapeHtml(item.desc)}</td>
+                        <td class="py-3 px-4 font-extrabold text-slate-900 flex items-center space-x-2">
+                            <span>${item.qty}</span>
+                            <button onclick="openQtyModal('${item.id}', ${item.qty})" class="text-indigo-700 hover:text-indigo-900 p-1.5 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition font-bold" title="Editar quantidade">
+                                <i class="fa-solid fa-pen text-xs"></i>
+                            </button>
+                        </td>
+                        <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.unit)}</td>
+                        <td class="py-3 px-4">${statusBadge}</td>
+                        <td class="py-3 px-4 text-slate-700 text-xs font-semibold">${formatDate(item.arrivalDate)}</td>
+                        <td class="py-3 px-4 text-slate-700 text-xs font-semibold">${formatDate(item.pcpDate)}</td>
+                        <td class="py-3 px-4 text-right space-x-1">
+                            <button onclick="promptAction('${item.id}', 'concluir')" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 p-1.5 rounded-lg text-xs font-bold transition" title="Marcar Concluída">
+                                <i class="fa-solid fa-check"></i>
+                            </button>
+                            <button onclick="promptAction('${item.id}', 'cancelar')" class="bg-rose-100 hover:bg-rose-200 text-rose-800 p-1.5 rounded-lg text-xs font-bold transition" title="Cancelar Reserva">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        function renderAberto() {
+            const query = (document.getElementById('abertoClientFilter').value || '').toLowerCase();
+            const list = getFilteredReservations().filter(item => 
+                item.status === 'Disponível' && (item.client || '').toLowerCase().includes(query)
+            );
+
+            const tbody = document.getElementById('abertoTableBody');
+            const empty = document.getElementById('abertoEmpty');
+            tbody.innerHTML = '';
+
+            if (list.length === 0) {
+                empty.classList.remove('hidden');
+            } else {
+                empty.classList.add('hidden');
+                list.forEach(item => {
+                    const agingDays = calculateAging(item.arrivalDate);
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-50 transition-colors";
+                    tr.innerHTML = `
+                        <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(item.client)}</td>
+                        <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.machine)}</td>
+                        <td class="py-3 px-4 text-slate-800 font-semibold">${escapeHtml(item.item)}</td>
+                        <td class="py-3 px-4 text-slate-700 text-xs font-medium">${escapeHtml(item.desc)}</td>
+                        <td class="py-3 px-4 font-extrabold text-slate-900">${item.qty}</td>
+                        <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.unit)}</td>
+                        <td class="py-3 px-4">
+                            <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">${agingDays} dias em aberto</span>
+                        </td>
+                        <td class="py-3 px-4 text-slate-700 text-xs font-semibold">${formatDate(item.arrivalDate)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        function renderClientes() {
+            const list = getFilteredReservations();
+            const clientCounts = {};
+
+            list.forEach(item => {
+                if (!clientCounts[item.client]) {
+                    clientCounts[item.client] = 0;
+                }
+                clientCounts[item.client]++;
+            });
+
+            const sortedClients = Object.keys(clientCounts).map(client => ({
+                client, count: clientCounts[client]
+            })).sort((a, b) => a.count - b.count);
+
+            const container = document.getElementById('clientListContainer');
+            container.innerHTML = '';
 
             if (sortedClients.length === 0) {
-                container.innerHTML = '<p class="text-slate-400 italic">Nenhum cliente com reservas ativas.</p>';
+                container.innerHTML = '<p class="text-xs text-slate-600 font-medium p-2">Nenhum cliente com reservas.</p>';
                 return;
             }
 
-            container.innerHTML = sortedClients.map(([client, count]) => `
-                <div class="flex justify-between items-center p-2 hover:bg-slate-100 rounded cursor-pointer transition border-b border-slate-100 last:border-0" onclick="openClientModal('${client}')">
-                    <span class="font-medium text-slate-700 underline">${client}</span>
-                    <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">${count} ativa(s)</span>
-                </div>
-            `).join('');
-        }
-
-        function renderUsedReservations() {
-            const container = document.getElementById('contentUsedReservations');
-            const used = reservations.filter(r => r.status === 'concluida');
-
-            if (used.length === 0) {
-                container.innerHTML = '<p class="text-slate-400 italic">Nenhuma reserva utilizada.</p>';
-                return;
-            }
-
-            container.innerHTML = used.map(r => {
-                const permanence = calculatePermanenceDays(r.arrivalDate, r.actionDate || r.arrivalDate);
-                return `
-                    <div class="p-2 border border-slate-200 rounded bg-emerald-50/50 flex flex-col space-y-1">
-                        <div class="flex justify-between font-semibold text-slate-800">
-                            <span>${r.client}</span>
-                            <span class="text-emerald-600">${r.originalQuantity} KG</span>
-                        </div>
-                        <div class="text-slate-500 text-[11px] flex justify-between">
-                            <span>Chegada: ${formatDate(r.arrivalDate)} | Conclusão: ${formatDate(r.actionDate)}</span>
-                            <span class="font-bold text-slate-700">Permanência: ${permanence} dias</span>
-                        </div>
+            sortedClients.forEach((sc, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-3 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition flex items-center justify-between group shadow-sm bg-white";
+                btn.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="w-6 h-6 rounded-full bg-slate-100 group-hover:bg-indigo-200 group-hover:text-indigo-900 text-slate-800 font-bold text-xs flex items-center justify-center">${idx + 1}</span>
+                        <span class="font-bold text-slate-900 text-sm">${escapeHtml(sc.client)}</span>
                     </div>
+                    <span class="bg-indigo-100 text-indigo-900 text-xs font-extrabold px-2.5 py-1 rounded-full">${sc.count} reservas</span>
                 `;
-            }).join('');
-        }
+                btn.onclick = () => selectClientForDetail(sc.client);
+                container.appendChild(btn);
+            });
 
-        function renderCanceledReservations() {
-            const container = document.getElementById('contentCanceledReservations');
-            const canceled = reservations.filter(r => r.status === 'cancelada');
-
-            if (canceled.length === 0) {
-                container.innerHTML = '<p class="text-slate-400 italic">Nenhuma reserva cancelada.</p>';
-                return;
+            if (sortedClients.length > 0) {
+                selectClientForDetail(sortedClients[0].client);
             }
+        }
 
-            container.innerHTML = canceled.map(r => {
-                const permanence = calculatePermanenceDays(r.arrivalDate, r.actionDate || r.arrivalDate);
-                return `
-                    <div class="p-2 border border-slate-200 rounded bg-rose-50/50 flex flex-col space-y-1">
-                        <div class="flex justify-between font-semibold text-slate-800">
-                            <span>${r.client}</span>
-                            <span class="text-rose-600">${r.originalQuantity} KG</span>
-                        </div>
-                        <div class="text-slate-500 text-[11px] flex justify-between">
-                            <span>Chegada: ${formatDate(r.arrivalDate)} | Cancelamento: ${formatDate(r.actionDate)}</span>
-                            <span class="font-bold text-slate-700">Permanência: ${permanence} dias</span>
-                        </div>
-                    </div>
+        function selectClientForDetail(clientName) {
+            document.getElementById('clientDetailHeader').innerText = 'Reservas Ativas do Cliente: ' + clientName;
+            const list = getFilteredReservations().filter(r => r.client === clientName);
+            const tbody = document.getElementById('clientDetailTableBody');
+            tbody.innerHTML = '';
+
+            list.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 font-bold text-slate-900">${escapeHtml(item.machine)}</td>
+                    <td class="py-2.5 px-3 font-semibold text-slate-800">${escapeHtml(item.item)}</td>
+                    <td class="py-2.5 px-3 font-extrabold text-slate-900">${item.qty}</td>
+                    <td class="py-2.5 px-3"><span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${item.status === 'Disponível' ? 'bg-blue-100 text-blue-900 border border-blue-200' : 'bg-amber-100 text-amber-900 border border-amber-200'}">${item.status}</span></td>
+                    <td class="py-2.5 px-3 text-slate-700 font-semibold">${formatDate(item.pcpDate)}</td>
                 `;
-            }).join('');
+                tbody.appendChild(tr);
+            });
         }
 
-        function calculatePermanenceDays(startDate, endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            const diffTime = Math.abs(end - start);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            return diffDays;
-        }
+        function renderConcluidas() {
+            const list = getFilteredCompleted();
+            const tbody = document.getElementById('concluidasTableBody');
+            const empty = document.getElementById('concluidasEmpty');
+            tbody.innerHTML = '';
 
-        function getAutomaticAvailabilityBadge(currentQty, originalQty) {
-            if (currentQty >= originalQty) {
-                return '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 inline-block">Disponível</span>';
-            } else if (currentQty > 0 && currentQty < originalQty) {
-                return '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 inline-block">Parcialmente</span>';
+            if (list.length === 0) {
+                empty.classList.remove('hidden');
             } else {
-                return '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 inline-block">Disponível</span>';
+                empty.classList.add('hidden');
+                list.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-50 transition-colors";
+                    tr.innerHTML = `
+                        <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(item.client)}</td>
+                        <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.machine)}</td>
+                        <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.item)}</td>
+                        <td class="py-3 px-4 text-slate-700 text-xs font-medium">${escapeHtml(item.desc)}</td>
+                        <td class="py-3 px-4 font-extrabold text-slate-900">${item.qty}</td>
+                        <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.unit)}</td>
+                        <td class="py-3 px-4 font-bold text-indigo-900"><i class="fa-solid fa-user mr-1 text-xs"></i>${escapeHtml(item.user)}</td>
+                        <td class="py-3 px-4 text-slate-700 text-xs font-semibold">${formatDate(item.date)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
             }
         }
 
-        function renderTable() {
-            const tbody = document.getElementById('reservasTableBody');
-            const search = document.getElementById('searchInput').value.toLowerCase();
-            const unit = document.getElementById('unitFilter').value;
+        function renderCanceladas() {
+            const list = getFilteredCancelled();
+            const tbody = document.getElementById('canceladasTableBody');
+            const empty = document.getElementById('canceladasEmpty');
+            tbody.innerHTML = '';
 
-            let filtered = reservations.filter(r => r.status === 'ativa');
-
-            if (search) {
-                filtered = filtered.filter(r => 
-                    r.client.toLowerCase().includes(search) || 
-                    r.item.toLowerCase().includes(search) || 
-                    r.description.toLowerCase().includes(search) ||
-                    r.machine.toLowerCase().includes(search)
-                );
-            }
-
-            if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-400 italic">Nenhum registro encontrado.</td></tr>`;
-                document.getElementById('totalSumQuantity').innerText = '0 KG';
-                return;
-            }
-
-            let totalSum = 0;
-
-            tbody.innerHTML = filtered.map(r => {
-                totalSum += Number(r.quantity);
-                const badge = getAutomaticAvailabilityBadge(r.quantity, r.originalQuantity);
-                return `
-                    <tr class="hover:bg-slate-50 transition border-b border-slate-100">
-                        <td class="p-3.5 text-center">
-                            <input type="checkbox" value="${r.idFirebase}" class="row-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
-                        </td>
-                        <td class="p-3.5 font-medium text-slate-800">${r.machine}</td>
-                        <td class="p-3.5 font-medium text-slate-800">${r.item}</td>
-                        <td class="p-3.5 text-slate-700">${r.client}</td>
-                        <td class="p-3.5">
-                            <div class="flex items-center space-x-2">
-                                <span id="qty-text-${r.idFirebase}" class="font-bold text-indigo-600">${r.quantity} KG</span>
-                                <button onclick="enableQtyEdit('${r.idFirebase}')" class="text-slate-400 hover:text-indigo-600 transition" title="Editar Quantidade">
-                                    <i class="fa-solid fa-pen text-xs"></i>
-                                </button>
-                            </div>
-                            <div id="qty-edit-${r.idFirebase}" class="hidden flex items-center space-x-1 mt-1">
-                                <input type="number" id="input-qty-${r.idFirebase}" value="${r.quantity}" step="0.001" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:border-indigo-500">
-                                <button onclick="saveQty('${r.idFirebase}')" class="bg-emerald-600 text-white px-2 py-1 rounded text-xs hover:bg-emerald-700 transition" title="Confirmar Quantidade">
-                                    <i class="fa-solid fa-check"></i>
-                                </button>
-                            </div>
-                        </td>
-                        <td class="p-3.5 text-slate-600 text-xs">${r.description}</td>
-                        <td class="p-3.5 text-slate-600 text-xs">${formatDate(r.pcpDate)}</td>
-                        <td class="p-3.5">${badge}</td>
-                        <td class="p-3.5 font-semibold text-orange-600 text-xs">${formatDate(r.arrivalDate)}</td>
-                        <td class="p-3.5 text-center">
-                            <div class="flex items-center justify-center space-x-2">
-                                <button onclick="confirmActionWithPrompt('${r.idFirebase}', 'concluida')" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 p-1.5 rounded-lg text-xs transition" title="Concluir / Utilizar">
-                                    <i class="fa-solid fa-check"></i>
-                                </button>
-                                <button onclick="confirmActionWithPrompt('${r.idFirebase}', 'cancelada')" class="bg-rose-100 hover:bg-rose-200 text-rose-700 p-1.5 rounded-lg text-xs transition" title="Cancelar">
-                                    <i class="fa-solid fa-xmark"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-
-            document.getElementById('totalSumQuantity').innerText = totalSum.toLocaleString('pt-BR') + ' KG';
-        }
-
-        window.filterTable = function() {
-            renderTable();
-        }
-
-        window.enableQtyEdit = function(idFirebase) {
-            document.getElementById(`qty-text-${idFirebase}`).parentElement.classList.add('hidden');
-            document.getElementById(`qty-edit-${idFirebase}`).classList.remove('hidden');
-        }
-
-        window.saveQty = async function(idFirebase) {
-            const inputVal = Number(document.getElementById(`input-qty-${idFirebase}`).value);
-            try {
-                const resRef = doc(db, "reservas", idFirebase);
-                await updateDoc(resRef, { quantity: inputVal });
-                const res = reservations.find(r => r.idFirebase === idFirebase);
-                if (res) {
-                    res.quantity = inputVal;
-                    renderTable();
-                    updateIndicatorsContent();
-                }
-            } catch (error) {
-                console.error("Erro ao atualizar quantidade no Firebase: ", error);
+            if (list.length === 0) {
+                empty.classList.remove('hidden');
+            } else {
+                empty.classList.add('hidden');
+                list.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-50 transition-colors";
+                    tr.innerHTML = `
+                        <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(item.client)}</td>
+                        <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.machine)}</td>
+                        <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.item)}</td>
+                        <td class="py-3 px-4 text-slate-700 text-xs font-medium">${escapeHtml(item.desc)}</td>
+                        <td class="py-3 px-4 font-extrabold text-slate-900">${item.qty}</td>
+                        <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.unit)}</td>
+                        <td class="py-3 px-4 font-bold text-rose-900"><i class="fa-solid fa-user mr-1 text-xs"></i>${escapeHtml(item.user)}</td>
+                        <td class="py-3 px-4 text-slate-700 text-xs font-semibold">${formatDate(item.date)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
             }
         }
 
-        window.confirmActionWithPrompt = async function(idFirebase, actionType) {
-            const actionName = actionType === 'concluida' ? 'concluir/utilizar' : 'cancelar';
-            if (confirm(`Deseja realmente ${actionName} esta reserva?`)) {
-                try {
-                    const actionDateStr = new Date().toISOString().split('T')[0];
-                    const resRef = doc(db, "reservas", idFirebase);
-                    await updateDoc(resRef, { 
-                        status: actionType,
-                        actionDate: actionDateStr
-                    });
-                    const res = reservations.find(r => r.idFirebase === idFirebase);
-                    if (res) {
-                        res.status = actionType;
-                        res.actionDate = actionDateStr;
-                        renderTable();
-                        updateIndicatorsContent();
+        function renderCharts() {
+            function getMonthlyStats(unitFilter) {
+                const arrivals = new Array(12).fill(0);
+                const completed = new Array(12).fill(0);
+                const cancelled = new Array(12).fill(0);
+
+                let resList = unitFilter === 'Ambas' ? reservations : reservations.filter(r => r.unit === unitFilter);
+                let compList = unitFilter === 'Ambas' ? completedReservations : completedReservations.filter(r => r.unit === unitFilter);
+                let cancList = unitFilter === 'Ambas' ? cancelledReservations : cancelledReservations.filter(r => r.unit === unitFilter);
+
+                resList.forEach(r => {
+                    if (r.arrivalDate) {
+                        const m = new Date(r.arrivalDate).getMonth();
+                        if (!isNaN(m)) arrivals[m]++;
                     }
-                } catch (error) {
-                    console.error("Erro ao atualizar status no Firebase: ", error);
-                }
-            }
-        }
-
-        window.toggleSelectAll = function(master) {
-            const checkboxes = document.querySelectorAll('.row-checkbox');
-            checkboxes.forEach(cb => cb.checked = master.checked);
-        }
-
-        window.confirmSelectedBatch = async function() {
-            const checkboxes = document.querySelectorAll('.row-checkbox:checked');
-            if (checkboxes.length === 0) {
-                alert('Selecione ao menos uma reserva para confirmar.');
-                return;
-            }
-            if (confirm(`Deseja confirmar (concluir) as ${checkboxes.length} reservas selecionadas?`)) {
-                try {
-                    const actionDateStr = new Date().toISOString().split('T')[0];
-                    for (const cb of checkboxes) {
-                        const idFirebase = cb.value;
-                        const resRef = doc(db, "reservas", idFirebase);
-                        await updateDoc(resRef, { 
-                            status: 'concluida',
-                            actionDate: actionDateStr
-                        });
-                        const res = reservations.find(r => r.idFirebase === idFirebase);
-                        if (res) {
-                            res.status = 'concluida';
-                            res.actionDate = actionDateStr;
-                        }
+                });
+                compList.forEach(c => {
+                    if (c.date) {
+                        const m = new Date(c.date).getMonth();
+                        if (!isNaN(m)) completed[m]++;
                     }
-                    renderTable();
-                    updateIndicatorsContent();
-                    document.getElementById('selectAll').checked = false;
-                } catch (error) {
-                    console.error("Erro ao processar lote no Firebase: ", error);
+                });
+                cancList.forEach(x => {
+                    if (x.date) {
+                        const m = new Date(x.date).getMonth();
+                        if (!isNaN(m)) cancelled[m]++;
+                    }
+                });
+
+                return { arrivals, completed, cancelled };
+            }
+
+            renderSingleChart('chartMG1', 'listMG1', getMonthlyStats('MG1'), 'MG1');
+            renderSingleChart('chartMG4', 'listMG4', getMonthlyStats('MG4'), 'MG4');
+            renderSingleChart('chartBoth', 'listBoth', getMonthlyStats('Ambas'), 'Ambas');
+        }
+
+        function renderSingleChart(canvasId, listId, stats, unitName) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            
+            if (window[canvasId + 'Obj']) {
+                window[canvasId + 'Obj'].destroy();
+            }
+
+            window[canvasId + 'Obj'] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+                    datasets: [
+                        { label: 'Chegadas', data: stats.arrivals, backgroundColor: '#6366f1', borderRadius: 6 },
+                        { label: 'Concluídas', data: stats.completed, backgroundColor: '#10b981', borderRadius: 6 },
+                        { label: 'Canceladas', data: stats.cancelled, backgroundColor: '#f43f5e', borderRadius: 6 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12, weight: 'bold' }, color: '#1e293b' } } },
+                    scales: { 
+                        y: { beginAtZero: true, ticks: { precision: 0, font: { weight: 'bold' }, color: '#1e293b' } },
+                        x: { ticks: { font: { weight: 'bold' }, color: '#1e293b' } }
+                    }
                 }
+            });
+
+            const listEl = document.getElementById(listId);
+            listEl.innerHTML = '';
+            
+            let clientSet = new Set();
+            let unitRes = unitName === 'Ambas' ? reservations : reservations.filter(r => r.unit === unitName);
+            unitRes.forEach(r => clientSet.add(r.client));
+
+            if (clientSet.size === 0) {
+                listEl.innerHTML = '<span class="text-slate-600 font-medium">Nenhum cliente registrado.</span>';
+            } else {
+                clientSet.forEach(c => {
+                    const badge = document.createElement('div');
+                    badge.className = "flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs shadow-sm";
+                    badge.innerHTML = `<span class="font-bold text-slate-900">${escapeHtml(c)}</span><span class="text-indigo-800 font-extrabold">Ativo</span>`;
+                    listEl.appendChild(badge);
+                });
             }
         }
 
-        window.openNewModal = function() {
-            document.getElementById('newReservationForm').reset();
-            document.getElementById('newModal').classList.remove('hidden');
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            const container = document.getElementById(modalId + 'Container') || modal.firstElementChild;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                container.classList.remove('scale-95');
+                container.classList.add('scale-100');
+            }, 10);
         }
 
-        window.closeNewModal = function() {
-            document.getElementById('newModal').classList.add('hidden');
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            const container = document.getElementById(modalId + 'Container') || modal.firstElementChild;
+            modal.classList.add('opacity-0');
+            container.classList.remove('scale-100');
+            container.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
         }
 
-        window.handleNewReservation = async function(e) {
+        async function saveReservation(e) {
             e.preventDefault();
-            const todayStr = new Date().toISOString().split('T')[0];
-            const newRes = {
-                machine: document.getElementById('newMachine').value,
-                item: document.getElementById('newItem').value,
-                client: document.getElementById('newClient').value,
-                quantity: Number(document.getElementById('newQuantity').value),
-                originalQuantity: Number(document.getElementById('newQuantity').value),
-                unit: document.getElementById('newUnit').value,
-                description: document.getElementById('newDescription').value,
-                pcpDate: document.getElementById('newPcpDate').value,
-                arrivalDate: document.getElementById('newArrivalDate').value,
-                status: 'ativa',
-                creationDate: todayStr
-            };
+            const machine = document.getElementById('resMachine').value;
+            const client = document.getElementById('resClient').value;
+            const item = document.getElementById('resItem').value;
+            const desc = document.getElementById('resDesc').value;
+            const qty = Number(document.getElementById('resQty').value);
+            const unit = document.getElementById('resUnit').value;
+            const arrivalDate = document.getElementById('resArrivalDate').value;
+            const pcpDate = document.getElementById('resPcpDate').value;
 
-            try {
-                const docRef = await addDoc(collection(db, "reservas"), newRes);
-                reservations.push({ idFirebase: docRef.id, ...newRes });
-                closeNewModal();
-                renderTable();
-                updateIndicatorsContent();
-            } catch (error) {
-                console.error("Erro ao adicionar nova reserva no Firebase: ", error);
+            await fbAddReservation({
+                machine, client, item, desc, qty, originalQty: qty, unit, status: 'Disponível', arrivalDate, pcpDate, user: ''
+            });
+
+            closeModal('reservationModal');
+            document.getElementById('reservationForm').reset();
+            showToast('Nova reserva cadastrada com sucesso!');
+        }
+
+        function openQtyModal(id, currentQty) {
+            document.getElementById('editQtyId').value = id;
+            document.getElementById('newQtyInput').value = currentQty;
+            openModal('qtyModal');
+        }
+
+        async function confirmEditQty() {
+            const id = document.getElementById('editQtyId').value;
+            const newQty = Number(document.getElementById('newQtyInput').value);
+            const item = reservations.find(r => r.id === id);
+
+            if (item) {
+                const newStatus = newQty < item.originalQty ? 'Parcial' : 'Disponível';
+                await fbUpdateReservationQty(id, newQty, newStatus);
+                closeModal('qtyModal');
+                showToast('Quantidade atualizada com sucesso!');
             }
         }
 
-        window.openClientModal = function(clientName) {
-            closeSidebarDrawer();
-            document.getElementById('clientModalTitle').innerText = `Todas as Reservas do Cliente: ${clientName}`;
-            const tbody = document.getElementById('clientModalTableBody');
-            
-            const clientRes = reservations.filter(r => r.client === clientName);
+        let pendingActionData = null;
+        function promptAction(id, actionType) {
+            pendingActionData = { id, actionType };
+            const title = actionType === 'concluir' ? 'Concluir Reserva' : 'Cancelar Reserva';
+            const text = actionType === 'concluir' ? 'Deseja marcar esta reserva como concluída?' : 'Deseja cancelar esta reserva?';
+            const btnClass = actionType === 'concluir' ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-rose-600 hover:bg-rose-500 text-white';
 
-            tbody.innerHTML = clientRes.map(r => {
-                const badge = getAutomaticAvailabilityBadge(r.quantity, r.originalQuantity);
-                return `
-                    <tr class="hover:bg-slate-50 transition border-b border-slate-100">
-                        <td class="p-3.5 font-medium text-slate-800">${r.machine}</td>
-                        <td class="p-3.5 font-medium text-slate-800">${r.item}</td>
-                        <td class="p-3.5 text-slate-600">${r.unit}</td>
-                        <td class="p-3.5 font-bold text-indigo-600">${r.quantity} KG</td>
-                        <td class="p-3.5 text-slate-600 text-xs">${r.description}</td>
-                        <td class="p-3.5 text-slate-600 text-xs">${formatDate(r.pcpDate)}</td>
-                        <td class="p-3.5">${badge}</td>
-                        <td class="p-3.5 font-semibold text-orange-600 text-xs">${formatDate(r.arrivalDate)}</td>
-                    </tr>
-                `;
-            }).join('');
+            document.getElementById('actionModalTitle').innerText = title;
+            document.getElementById('actionModalText').innerText = text;
+            const btn = document.getElementById('actionConfirmBtn');
+            btn.className = `px-4 py-1.5 rounded-xl text-xs font-bold shadow ${btnClass}`;
+            document.getElementById('actionUserName').value = '';
 
-            document.getElementById('clientModal').classList.remove('hidden');
+            openModal('actionModal');
         }
 
-        window.closeClientModal = function() {
-            document.getElementById('clientModal').classList.add('hidden');
+        async function executeAction() {
+            const userName = document.getElementById('actionUserName').value.trim();
+            if (!userName) {
+                showToast('Por favor, informe seu nome como responsável.', 'rose');
+                return;
+            }
+
+            const { id, actionType } = pendingActionData;
+            const item = reservations.find(r => r.id === id);
+            if (item) {
+                const today = new Date().toISOString().split('T')[0];
+                if (actionType === 'concluir') {
+                    await fbMoveToCompleted(item, userName, today);
+                    showToast('Reserva concluída com sucesso!');
+                } else {
+                    await fbMoveToCancelled(item, userName, today);
+                    showToast('Reserva cancelada.', 'rose');
+                }
+                closeModal('actionModal');
+            }
         }
 
-        window.openChartsModal = function() {
-            closeSidebarDrawer();
-            document.getElementById('chartsModal').classList.remove('hidden');
-            renderChartsData();
+        function downloadExcelTemplate() {
+            const templateData = [
+                { Máquina: "Torno CNC 01", Cliente: "Cliente Exemplo", Item: "Eixo Aço", Descrição: "Peça usinada", Quantidade: 50, Unidade: "MG1", DataChegada: "2026-03-01", DataPCP: "2026-03-20" }
+            ];
+            const worksheet = XLSX.utils.json_to_sheet(templateData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Reservas");
+            XLSX.writeFile(workbook, "modelo_reservas_pcp.xlsx");
+            showToast('Modelo Excel (.xlsx) baixado com sucesso!');
         }
 
-        window.closeChartsModal = function() {
-            document.getElementById('chartsModal').classList.add('hidden');
-        }
+        function handleExcelFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            document.getElementById('fileNameLabel').innerText = file.name;
 
-        function getMonthlyData(statusFilter) {
-            const monthsMap = {
-                '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr',
-                '05': 'Mai', '06': 'Jun', '07': 'Jul', '08': 'Ago',
-                '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    parsedExcelData = XLSX.utils.sheet_to_json(worksheet);
+                    showToast(`Arquivo lido com sucesso! ${parsedExcelData.length} linhas encontradas.`);
+                } catch(err) {
+                    console.error(err);
+                    showToast('Erro ao ler o arquivo Excel.', 'rose');
+                }
             };
-            
-            const counts = {};
-
-            reservations.forEach(r => {
-                let match = false;
-                let dateField = '';
-                if (statusFilter === 'criadas') {
-                    match = true;
-                    dateField = r.creationDate || r.pcpDate;
-                } else if (statusFilter === 'concluida') {
-                    if (r.status === 'concluida') {
-                        match = true;
-                        dateField = r.actionDate || r.arrivalDate;
-                    }
-                } else if (statusFilter === 'cancelada') {
-                    if (r.status === 'cancelada') {
-                        match = true;
-                        dateField = r.actionDate || r.arrivalDate;
-                    }
-                }
-
-                if (match && dateField) {
-                    const parts = dateField.split('-');
-                    if (parts.length === 3) {
-                        const year = parts[0];
-                        const monthKey = parts[1];
-                        const label = `${monthsMap[monthKey] || monthKey}/${year}`;
-                        counts[label] = (counts[label] || 0) + 1;
-                    }
-                }
-            });
-
-            const sortedKeys = Object.keys(counts).sort();
-            const dataValues = sortedKeys.map(k => counts[k]);
-
-            return { labels: sortedKeys, data: dataValues };
+            reader.readAsArrayBuffer(file);
         }
 
-        function renderChartsData() {
-            if (chartCreatedInstance) chartCreatedInstance.destroy();
-            if (chartUsedInstance) chartUsedInstance.destroy();
-            if (chartCanceledInstance) chartCanceledInstance.destroy();
+        async function processExcelImport() {
+            if (!parsedExcelData || parsedExcelData.length === 0) {
+                showToast('Nenhum arquivo Excel válido selecionado.', 'rose');
+                return;
+            }
 
-            const createdData = getMonthlyData('criadas');
-            const ctxCreated = document.getElementById('chartCreated').getContext('2d');
-            chartCreatedInstance = new Chart(ctxCreated, {
-                type: 'bar',
-                data: {
-                    labels: createdData.labels.length ? createdData.labels : ['Nenhum dado'],
-                    datasets: [{
-                        label: 'Criadas',
-                        data: createdData.data.length ? createdData.data : [0],
-                        backgroundColor: '#4f46e5',
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-                }
-            });
+            let count = 0;
+            for (const row of parsedExcelData) {
+                const machine = row.Máquina || row.Maquina || row.MAQUINA || 'Máquina Geral';
+                const client = row.Cliente || row.CLIENTE || 'Cliente Geral';
+                const item = row.Item || row.ITEM || 'Item Genérico';
+                const desc = row.Descrição || row.Descricao || row.DESCRICAO || '';
+                const qty = Number(row.Quantidade || row.QUANTIDADE || 10);
+                const unit = (row.Unidade || row.UNIDADE || 'MG1').toUpperCase() === 'MG4' ? 'MG4' : 'MG1';
+                const arrivalDate = row.DataChegada || row.DATA_CHEGADA || new Date().toISOString().split('T')[0];
+                const pcpDate = row.DataPCP || row.DATA_PCP || new Date().toISOString().split('T')[0];
 
-            const usedData = getMonthlyData('concluida');
-            const ctxUsed = document.getElementById('chartUsed').getContext('2d');
-            chartUsedInstance = new Chart(ctxUsed, {
-                type: 'bar',
-                data: {
-                    labels: usedData.labels.length ? usedData.labels : ['Nenhum dado'],
-                    datasets: [{
-                        label: 'Utilizadas',
-                        data: usedData.data.length ? usedData.data : [0],
-                        backgroundColor: '#10b981',
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: type = 'bar',
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-                }
-            });
+                await fbAddReservation({
+                    machine, client, item, desc, qty, originalQty: qty, unit, status: 'Disponível', arrivalDate, pcpDate, user: ''
+                });
+                count++;
+            }
 
-            const canceledData = getMonthlyData('cancelada');
-            const ctxCanceled = document.getElementById('chartCanceled').getContext('2d');
-            chartCanceledInstance = new Chart(ctxCanceled, {
-                type: 'bar',
-                data: {
-                    labels: canceledData.labels.length ? canceledData.labels : ['Nenhum dado'],
-                    datasets: [{
-                        label: 'Canceladas',
-                        data: canceledData.data.length ? canceledData.data : [0],
-                        backgroundColor: '#f43f5e',
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-                }
-            });
+            closeModal('bulkModal');
+            parsedExcelData = null;
+            document.getElementById('fileNameLabel').innerText = 'Selecione ou arraste o arquivo .xlsx preenchido';
+            showToast(`${count} reservas importadas do Excel para o Firestore!`);
         }
 
         function formatDate(dateStr) {
             if (!dateStr) return '';
             const parts = dateStr.split('-');
-            if (parts.length !== 3) return dateStr;
-            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return dateStr;
+        }
+
+        function calculateAging(dateStr) {
+            if (!dateStr) return 0;
+            const start = new Date(dateStr);
+            const now = new Date();
+            const diffTime = Math.abs(now - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays;
+        }
+
+        function showToast(message, type = 'emerald') {
+            const toast = document.getElementById('toast');
+            const msg = document.getElementById('toastMessage');
+            const icon = document.getElementById('toastIcon');
+
+            msg.innerText = message;
+            icon.className = type === 'rose' ? 'fa-solid fa-circle-exclamation text-rose-400' : 'fa-solid fa-circle-check text-emerald-400';
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
     </script>
 </body>
