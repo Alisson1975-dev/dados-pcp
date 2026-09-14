@@ -7,9 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js for analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- SheetJS for real .xlsx parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; font-weight: 400; }
@@ -56,7 +54,7 @@
         </div>
     </header>
 
-    <!-- Light Theme Side Menu Drawer -->
+    <!-- Side Menu Drawer -->
     <div id="sideMenuOverlay" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden opacity-0 transition-opacity duration-300" onclick="toggleMenu()"></div>
     <div id="sideMenu" class="fixed top-0 left-0 bottom-0 w-72 bg-white text-slate-800 z-50 transform -translate-x-full transition-transform duration-300 flex flex-col shadow-2xl border-r border-slate-200">
         <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
@@ -97,7 +95,7 @@
             </button>
         </div>
         <div class="p-4 border-t border-slate-200 text-xs text-slate-500 text-center bg-slate-50 font-medium">
-            PCP System v2.8 &bull; Firebase Sync
+            PCP System v2.8 &bull; LocalStorage Sync
         </div>
     </div>
 
@@ -139,9 +137,7 @@
                                 <th class="py-3 px-4 text-right">Ações</th>
                             </tr>
                         </thead>
-                        <tbody id="geralTableBody" class="divide-y divide-slate-200 text-xs sm:text-sm font-medium">
-                            <!-- Populated dynamically -->
-                        </tbody>
+                        <tbody id="geralTableBody" class="divide-y divide-slate-200 text-xs sm:text-sm font-medium"></tbody>
                     </table>
                 </div>
                 <div id="geralEmpty" class="hidden text-center py-12">
@@ -193,13 +189,11 @@
                 <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
                     <i class="fa-solid fa-users-rectangle text-indigo-600 mr-2"></i> Clientes com Mais Reservas em Aberto
                 </h2>
-                <p class="text-xs text-slate-600 font-medium mt-0.5">Clique no nome de um cliente para inspecionar suas reservas ativas (ordenado por ordem crescente de volume/demanda).</p>
+                <p class="text-xs text-slate-600 font-medium mt-0.5">Clique no nome de um cliente para inspecionar suas reservas ativas.</p>
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-grow overflow-hidden">
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-y-auto custom-scrollbar p-3">
-                    <div id="clientListContainer" class="space-y-2">
-                        <!-- Client cards generated here -->
-                    </div>
+                    <div id="clientListContainer" class="space-y-2"></div>
                 </div>
                 <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
                     <div class="p-3 bg-slate-100 border-b border-slate-200 font-bold text-xs text-slate-800 uppercase" id="clientDetailHeader">
@@ -296,7 +290,7 @@
                 </div>
             </div>
 
-            <!-- Gráfico 1: Unidade MG1 -->
+            <!-- Gráfico MG1 -->
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 flex flex-col">
                     <h3 class="font-bold text-slate-900 text-sm mb-3">Unidade MG1 - Movimentação Mensal</h3>
@@ -310,7 +304,7 @@
                 </div>
             </div>
 
-            <!-- Gráfico 2: Unidade MG4 -->
+            <!-- Gráfico MG4 -->
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 flex flex-col">
                     <h3 class="font-bold text-slate-900 text-sm mb-3">Unidade MG4 - Movimentação Mensal</h3>
@@ -324,7 +318,7 @@
                 </div>
             </div>
 
-            <!-- Gráfico 3: MG1 e MG4 Juntos -->
+            <!-- Gráfico Consolidado -->
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 flex flex-col">
                     <h3 class="font-bold text-slate-900 text-sm mb-3">Consolidado (MG1 & MG4) - Movimentação Mensal</h3>
@@ -341,7 +335,6 @@
 
     </main>
 
-    
     <!-- Modal: Nova Reserva -->
     <div id="reservationModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
         <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="resModalContainer">
@@ -401,17 +394,17 @@
         </div>
     </div>
 
-    <!-- Modal: Inserção em Massa Excel (.xlsx) -->
+    <!-- Modal: Excel (.xlsx) -->
     <div id="bulkModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
         <div class="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="bulkModalContainer">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-                <h3 class="font-bold text-slate-900 text-base">Inserir em Massa (Arquivo Excel .xlsx)</h3>
+                <h3 class="font-bold text-slate-900 text-base">Inserir em Massa (Excel .xlsx)</h3>
                 <button onclick="closeModal('bulkModal')" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
             <div class="p-6 space-y-4">
-                <p class="text-xs text-slate-700 font-medium">Baixe o modelo oficial com cada campo em uma coluna, preencha no Excel e selecione o arquivo abaixo para refletir na aba Geral.</p>
+                <p class="text-xs text-slate-700 font-medium">Baixe o modelo oficial, preencha no Excel e selecione o arquivo abaixo.</p>
                 
                 <button onclick="downloadExcelTemplate()" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 py-2.5 rounded-xl text-sm font-bold transition flex items-center justify-center space-x-2 shadow-sm">
                     <i class="fa-solid fa-download"></i>
@@ -448,7 +441,6 @@
                 <div>
                     <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Nova Quantidade</label>
                     <input type="number" id="newQtyInput" min="0" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <p class="text-xs text-slate-600 font-medium mt-1">Se a quantidade for menor que a original, o status mudará para <span class="text-amber-700 font-bold">Parcial</span> (amarelo).</p>
                 </div>
                 <div class="flex items-center justify-end space-x-2">
                     <button onclick="closeModal('qtyModal')" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-3 py-1.5 rounded-xl text-xs font-bold">Cancelar</button>
@@ -458,7 +450,7 @@
         </div>
     </div>
 
-    <!-- Modal: Janela de Confirmação para Ações (Concluir / Cancelar) -->
+    <!-- Modal: Ação (Concluir/Cancelar) -->
     <div id="actionModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
         <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="actionModalContainer">
             <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
@@ -470,7 +462,7 @@
             <div class="p-5 space-y-4">
                 <input type="hidden" id="actionTargetId">
                 <input type="hidden" id="actionTargetType">
-                <p id="actionModalText" class="text-xs sm:text-sm text-slate-800 font-medium">Tem certeza que deseja prosseguir com esta ação?</p>
+                <p id="actionModalText" class="text-xs sm:text-sm text-slate-800 font-medium">Tem certeza?</p>
                 <div>
                     <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Seu Nome (Responsável)</label>
                     <input type="text" id="actionUserName" required placeholder="Ex: Carlos Silva" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -489,110 +481,26 @@
         <span id="toastMessage" class="text-xs sm:text-sm font-bold text-white">Ação realizada com sucesso!</span>
     </div>
 
-    <!-- Firebase SDKs (Modular v10) -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+    <script>
+        // Carregamento inicial do localStorage
+        let reservations = JSON.parse(localStorage.getItem('pcp_reservations')) || [];
+        let completedReservations = JSON.parse(localStorage.getItem('pcp_completed')) || [];
+        let cancelledReservations = JSON.parse(localStorage.getItem('pcp_cancelled')) || [];
 
-        // Substitua com as configurações do seu projeto do Firebase
-        const firebaseConfig = {
-            apiKey: "SEU_API_KEY",
-            authDomain: "SEU_AUTH_DOMAIN",
-            projectId: "SEU_PROJECT_ID",
-            storageBucket: "SEU_STORAGE_BUCKET",
-            messagingSenderId: "SEU_MESSAGING_SENDER_ID",
-            appId: "SEU_APP_ID"
-        };
+        let currentGlobalUnit = 'Ambas';
+        let chartsInstance = { mg1: null, mg4: null, both: null };
+        let parsedExcelData = null;
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        function saveData() {
+            localStorage.setItem('pcp_reservations', JSON.stringify(reservations));
+            localStorage.setItem('pcp_completed', JSON.stringify(completedReservations));
+            localStorage.setItem('pcp_cancelled', JSON.stringify(cancelledReservations));
+        }
 
-        // Armazenamentos locais globais alimentados pelo Firebase
-        window.reservations = [];
-        window.completedReservations = [];
-        window.cancelledReservations = [];
-
-        window.currentGlobalUnit = 'Ambas';
-        window.chartsInstance = { mg1: null, mg4: null, both: null };
-        window.parsedExcelData = null;
-
-        // Inicialização em Tempo Real (Listeners do Firestore)
-        window.initFirebaseListeners = function() {
-            // Ouvir Reservas Ativas
-            onSnapshot(collection(db, "reservations"), (snapshot) => {
-                window.reservations = [];
-                snapshot.forEach((docSnap) => {
-                    window.reservations.push({ id: docSnap.id, ...docSnap.data() });
-                });
-                refreshAllViews();
-            });
-
-            // Ouvir Reservas Concluídas
-            onSnapshot(collection(db, "completedReservations"), (snapshot) => {
-                window.completedReservations = [];
-                snapshot.forEach((docSnap) => {
-                    window.completedReservations.push({ id: docSnap.id, ...docSnap.data() });
-                });
-                refreshAllViews();
-            });
-
-            // Ouvir Reservas Canceladas
-            onSnapshot(collection(db, "cancelledReservations"), (snapshot) => {
-                window.cancelledReservations = [];
-                snapshot.forEach((docSnap) => {
-                    window.cancelledReservations.push({ id: docSnap.id, ...docSnap.data() });
-                });
-                refreshAllViews();
-            });
-        };
-
-        // Funções Globais de Escrita no Firestore
-        window.fbAddReservation = async function(data) {
-            await addDoc(collection(db, "reservations"), data);
-        };
-
-        window.fbUpdateReservationQty = async function(id, newQty, newStatus) {
-            const ref = doc(db, "reservations", id);
-            await updateDoc(ref, { qty: newQty, status: newStatus });
-        };
-
-        window.fbMoveToCompleted = async function(item, userName, today) {
-            await addDoc(collection(db, "completedReservations"), {
-                machine: item.machine,
-                client: item.client,
-                item: item.item,
-                desc: item.desc,
-                qty: item.qty,
-                unit: item.unit,
-                user: userName,
-                date: today
-            });
-            await deleteDoc(doc(db, "reservations", item.id));
-        };
-
-        window.fbMoveToCancelled = async function(item, userName, today) {
-            await addDoc(collection(db, "cancelledReservations"), {
-                machine: item.machine,
-                client: item.client,
-                item: item.item,
-                desc: item.desc,
-                qty: item.qty,
-                unit: item.unit,
-                user: userName,
-                date: today
-            });
-            await deleteDoc(doc(db, "reservations", item.id));
-        };
-
-        // Inicializar app ao carregar a página
         window.onload = function() {
-            initFirebaseListeners();
             switchTab('geral');
         };
-    </script>
 
-    <script>
-        // Funções de Interface e Regras de Negócio
         function changeGlobalUnit(val) {
             currentGlobalUnit = val;
             refreshAllViews();
@@ -750,9 +658,7 @@
             const clientCounts = {};
 
             list.forEach(item => {
-                if (!clientCounts[item.client]) {
-                    clientCounts[item.client] = 0;
-                }
+                if (!clientCounts[item.client]) clientCounts[item.client] = 0;
                 clientCounts[item.client]++;
             });
 
@@ -966,7 +872,7 @@
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
 
-        async function saveReservation(e) {
+        function saveReservation(e) {
             e.preventDefault();
             const machine = document.getElementById('resMachine').value;
             const client = document.getElementById('resClient').value;
@@ -977,10 +883,13 @@
             const arrivalDate = document.getElementById('resArrivalDate').value;
             const pcpDate = document.getElementById('resPcpDate').value;
 
-            await fbAddReservation({
+            reservations.push({
+                id: '_' + Math.random().toString(36).substr(2, 9),
                 machine, client, item, desc, qty, originalQty: qty, unit, status: 'Disponível', arrivalDate, pcpDate, user: ''
             });
 
+            saveData();
+            refreshAllViews();
             closeModal('reservationModal');
             document.getElementById('reservationForm').reset();
             showToast('Nova reserva cadastrada com sucesso!');
@@ -992,14 +901,16 @@
             openModal('qtyModal');
         }
 
-        async function confirmEditQty() {
+        function confirmEditQty() {
             const id = document.getElementById('editQtyId').value;
             const newQty = Number(document.getElementById('newQtyInput').value);
             const item = reservations.find(r => r.id === id);
 
             if (item) {
-                const newStatus = newQty < item.originalQty ? 'Parcial' : 'Disponível';
-                await fbUpdateReservationQty(id, newQty, newStatus);
+                item.qty = newQty;
+                item.status = newQty < item.originalQty ? 'Parcial' : 'Disponível';
+                saveData();
+                refreshAllViews();
                 closeModal('qtyModal');
                 showToast('Quantidade atualizada com sucesso!');
             }
@@ -1021,7 +932,7 @@
             openModal('actionModal');
         }
 
-        async function executeAction() {
+        function executeAction() {
             const userName = document.getElementById('actionUserName').value.trim();
             if (!userName) {
                 showToast('Por favor, informe seu nome como responsável.', 'rose');
@@ -1029,16 +940,23 @@
             }
 
             const { id, actionType } = pendingActionData;
-            const item = reservations.find(r => r.id === id);
-            if (item) {
+            const index = reservations.findIndex(r => r.id === id);
+            
+            if (index !== -1) {
+                const item = reservations.splice(index, 1)[0];
                 const today = new Date().toISOString().split('T')[0];
+                const record = { ...item, user: userName, date: today };
+
                 if (actionType === 'concluir') {
-                    await fbMoveToCompleted(item, userName, today);
+                    completedReservations.push(record);
                     showToast('Reserva concluída com sucesso!');
                 } else {
-                    await fbMoveToCancelled(item, userName, today);
+                    cancelledReservations.push(record);
                     showToast('Reserva cancelada.', 'rose');
                 }
+
+                saveData();
+                refreshAllViews();
                 closeModal('actionModal');
             }
         }
@@ -1076,14 +994,14 @@
             reader.readAsArrayBuffer(file);
         }
 
-        async function processExcelImport() {
+        function processExcelImport() {
             if (!parsedExcelData || parsedExcelData.length === 0) {
                 showToast('Nenhum arquivo Excel válido selecionado.', 'rose');
                 return;
             }
 
             let count = 0;
-            for (const row of parsedExcelData) {
+            parsedExcelData.forEach(row => {
                 const machine = row.Máquina || row.Maquina || row.MAQUINA || 'Máquina Geral';
                 const client = row.Cliente || row.CLIENTE || 'Cliente Geral';
                 const item = row.Item || row.ITEM || 'Item Genérico';
@@ -1093,16 +1011,19 @@
                 const arrivalDate = row.DataChegada || row.DATA_CHEGADA || new Date().toISOString().split('T')[0];
                 const pcpDate = row.DataPCP || row.DATA_PCP || new Date().toISOString().split('T')[0];
 
-                await fbAddReservation({
+                reservations.push({
+                    id: '_' + Math.random().toString(36).substr(2, 9),
                     machine, client, item, desc, qty, originalQty: qty, unit, status: 'Disponível', arrivalDate, pcpDate, user: ''
                 });
                 count++;
-            }
+            });
 
+            saveData();
+            refreshAllViews();
             closeModal('bulkModal');
             parsedExcelData = null;
             document.getElementById('fileNameLabel').innerText = 'Selecione ou arraste o arquivo .xlsx preenchido';
-            showToast(`${count} reservas importadas do Excel para o Firestore!`);
+            showToast(`${count} reservas importadas com sucesso!`);
         }
 
         function formatDate(dateStr) {
