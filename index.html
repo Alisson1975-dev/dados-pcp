@@ -13,11 +13,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- jsPDF for PDF export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    
-    <!-- Firebase SDKs (Compat version v9 for easier integration) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-
     <style>
         body { font-family: 'Inter', sans-serif; font-weight: 400; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -37,7 +32,7 @@
                     <i class="fa-solid fa-bars text-lg"></i>
                 </button>
                 <div>
-                    <h1 class="text-sm sm:text-base font-extrabold tracking-tight text-white">PCP - Controle de Reservas de Clientes</h1>
+                    <h1 class="text-sm sm:text-base font-extrabold tracking-tight text-white">PCP - Controle de Reservas de Clientes (Firebase)</h1>
                 </div>
             </div>
 
@@ -107,7 +102,7 @@
             </button>
         </div>
         <div class="p-4 border-t border-slate-200 text-xs text-slate-500 text-center bg-slate-50 font-medium">
-            PCP System v3.2 &bull; Firebase Synced
+            PCP Firebase System v3.0
         </div>
     </div>
 
@@ -155,7 +150,7 @@
                 </div>
                 <div id="geralEmpty" class="hidden text-center py-12">
                     <div class="text-slate-400 text-4xl mb-3"><i class="fa-solid fa-folder-open"></i></div>
-                    <p class="text-slate-700 font-semibold text-sm">Nenhuma reserva encontrada ou sincronizando com o Firebase...</p>
+                    <p class="text-slate-700 font-semibold text-sm">Nenhuma reserva encontrada no Firebase.</p>
                 </div>
             </div>
         </div>
@@ -196,7 +191,7 @@
             </div>
         </div>
 
-        <!-- Tab 3: Clientes com mais reservas -->
+        <!-- Tab 3: Clientes com mais reservas em aberto -->
         <div id="tab-clientes" class="tab-content flex flex-col h-full w-full hidden">
             <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-4 flex-shrink-0">
                 <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
@@ -230,7 +225,7 @@
             </div>
         </div>
 
-        <!-- Tab 4: Concluídas -->
+        <!-- Tab 4: Reservas Concluídas -->
         <div id="tab-concluidas" class="tab-content flex flex-col h-full w-full hidden">
             <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-4 flex-shrink-0">
                 <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
@@ -260,7 +255,7 @@
             </div>
         </div>
 
-        <!-- Tab 5: Canceladas -->
+        <!-- Tab 5: Reservas Canceladas -->
         <div id="tab-canceladas" class="tab-content flex flex-col h-full w-full hidden">
             <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-4 flex-shrink-0">
                 <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
@@ -298,19 +293,16 @@
                     <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
                         <i class="fa-solid fa-sliders text-purple-600 mr-2"></i> Fluxo de Reservas & Histórico Geral
                     </h2>
-                    <p class="text-xs text-slate-600 font-medium mt-0.5">Gerencie todas as reservas (ativas, canceladas e concluídas).</p>
+                    <p class="text-xs text-slate-600 font-medium mt-0.5">Gerencie todas as reservas salvas no banco de dados.</p>
                 </div>
                 <div class="flex items-center space-x-2 flex-wrap gap-2">
-                    <button onclick="resetChartsStorage()" class="bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center shadow-sm">
-                        <i class="fa-solid fa-trash-can mr-1.5"></i> Zerar Histórico
+                    <button onclick="recalculateCharts()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-300 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center shadow-sm">
+                        <i class="fa-solid fa-calculator mr-1.5"></i> Atualizar Visão
                     </button>
                 </div>
             </div>
 
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 flex-grow flex flex-col overflow-hidden">
-                <div class="p-3 bg-slate-50 border-b border-slate-200 font-bold text-xs text-slate-700 uppercase">
-                    Todas as Reservas do Sistema
-                </div>
                 <div class="overflow-x-auto custom-scrollbar flex-grow">
                     <table class="w-full text-left border-collapse">
                         <thead>
@@ -337,7 +329,6 @@
                     <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
                         <i class="fa-solid fa-chart-pie text-indigo-600 mr-2"></i> Análise Gráfica Mensal (em Quilos - kg)
                     </h2>
-                    <p class="text-xs text-slate-600 font-medium mt-0.5">Contabiliza dados acumulados no Firebase.</p>
                 </div>
                 <div class="flex items-center space-x-3 flex-wrap gap-2">
                     <div class="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-300">
@@ -353,9 +344,7 @@
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 flex flex-col">
                     <h3 class="font-bold text-slate-900 text-sm mb-3">Unidade MG1 - Movimentação Mensal (kg)</h3>
-                    <div class="relative h-64 w-full">
-                        <canvas id="chartMG1"></canvas>
-                    </div>
+                    <div class="relative h-64 w-full"><canvas id="chartMG1"></canvas></div>
                 </div>
                 <div class="flex flex-col border-t lg:border-t-0 lg:border-l border-slate-200 lg:pl-6 pt-4 lg:pt-0">
                     <h4 class="font-bold text-xs uppercase text-slate-700 mb-2">Clientes Correspondentes (MG1)</h4>
@@ -366,9 +355,7 @@
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 flex flex-col">
                     <h3 class="font-bold text-slate-900 text-sm mb-3">Unidade MG4 - Movimentação Mensal (kg)</h3>
-                    <div class="relative h-64 w-full">
-                        <canvas id="chartMG4"></canvas>
-                    </div>
+                    <div class="relative h-64 w-full"><canvas id="chartMG4"></canvas></div>
                 </div>
                 <div class="flex flex-col border-t lg:border-t-0 lg:border-l border-slate-200 lg:pl-6 pt-4 lg:pt-0">
                     <h4 class="font-bold text-xs uppercase text-slate-700 mb-2">Clientes Correspondentes (MG4)</h4>
@@ -379,9 +366,7 @@
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 flex flex-col">
                     <h3 class="font-bold text-slate-900 text-sm mb-3">Consolidado (MG1 & MG4) - Movimentação Mensal (kg)</h3>
-                    <div class="relative h-64 w-full">
-                        <canvas id="chartBoth"></canvas>
-                    </div>
+                    <div class="relative h-64 w-full"><canvas id="chartBoth"></canvas></div>
                 </div>
                 <div class="flex flex-col border-t lg:border-t-0 lg:border-l border-slate-200 lg:pl-6 pt-4 lg:pt-0">
                     <h4 class="font-bold text-xs uppercase text-slate-700 mb-2">Clientes Correspondentes (Geral)</h4>
@@ -389,11 +374,12 @@
                 </div>
             </div>
         </div>
+
     </main>
 
-    <!-- Modals -->
+    <!-- Modal: Nova Reserva -->
     <div id="reservationModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
-        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="resModalContainer">
+        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="reservationModalContainer">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                 <h3 class="font-bold text-slate-900 text-base">Nova Reserva de Cliente</h3>
                 <button onclick="closeModal('reservationModal')" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg"><i class="fa-solid fa-xmark text-lg"></i></button>
@@ -442,23 +428,24 @@
                 </div>
                 <div class="pt-4 flex items-center justify-end space-x-3 border-t border-slate-200">
                     <button type="button" onclick="closeModal('reservationModal')" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-4 py-2 rounded-xl text-sm font-bold">Cancelar</button>
-                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow">Cadastrar Reserva</button>
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow">Salvar no Firebase</button>
                 </div>
             </form>
         </div>
     </div>
 
+    <!-- Modal: Excel (.xlsx) -->
     <div id="bulkModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
         <div class="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="bulkModalContainer">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-                <h3 class="font-bold text-slate-900 text-base">Inserir em Massa (.xlsx)</h3>
+                <h3 class="font-bold text-slate-900 text-base">Inserir em Massa (Excel .xlsx)</h3>
                 <button onclick="closeModal('bulkModal')" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="p-6 space-y-4">
                 <button onclick="downloadExcelTemplate()" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 py-2.5 rounded-xl text-sm font-bold transition flex items-center justify-center space-x-2 shadow-sm">
                     <i class="fa-solid fa-download"></i><span>Baixar Modelo do Excel (.xlsx)</span>
                 </button>
-                <div class="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center bg-slate-50 hover:bg-slate-100 transition">
+                <div class="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center bg-slate-50">
                     <label class="cursor-pointer flex flex-col items-center">
                         <i class="fa-solid fa-file-excel text-emerald-600 text-2xl mb-2"></i>
                         <span id="fileNameLabel" class="text-xs font-bold text-slate-700">Selecione o arquivo .xlsx preenchido</span>
@@ -467,12 +454,13 @@
                 </div>
                 <div class="flex items-center justify-end space-x-3 pt-2">
                     <button type="button" onclick="closeModal('bulkModal')" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-4 py-2 rounded-xl text-sm font-bold">Cancelar</button>
-                    <button type="button" onclick="processExcelImport()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow">Incluir no Geral</button>
+                    <button type="button" onclick="processExcelImport()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow">Importar</button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Modal: Editar Quantidade -->
     <div id="qtyModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
         <div class="bg-white rounded-2xl shadow-xl max-w-xs w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="qtyModalContainer">
             <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
@@ -493,13 +481,15 @@
         </div>
     </div>
 
+    <!-- Modal de Ação (Concluir/Cancelar) -->
     <div id="actionModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
         <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="actionModalContainer">
             <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-                <h3 class="font-bold text-slate-900 text-sm" id="actionModalTitle">Confirmação de Ação</h3>
+                <h3 class="font-bold text-slate-900 text-sm" id="actionModalTitle">Confirmação</h3>
                 <button onclick="closeModal('actionModal')" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="p-5 space-y-4">
+                <input type="hidden" id="actionTargetId">
                 <p id="actionModalText" class="text-xs sm:text-sm text-slate-800 font-medium">Tem certeza?</p>
                 <div>
                     <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Motivo / Informação</label>
@@ -513,42 +503,42 @@
         </div>
     </div>
 
+    <!-- Toast Notification -->
     <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center space-x-3 border border-slate-800">
         <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
         <span id="toastMessage" class="text-xs sm:text-sm font-bold text-white">Sucesso!</span>
     </div>
 
-    <script>
-        // ==========================================
-        // CONFIGURAÇÃO DO FIREBASE (SUBSTITUA AQUI)
-        // ==========================================
+    <!-- Firebase App & Lógica Principal -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
         const firebaseConfig = {
-            apiKey: "SUA_API_KEY",
-            authDomain: "SEU_AUTH_DOMAIN",
-            projectId: "SEU_PROJECT_ID",
-            storageBucket: "SEU_STORAGE_BUCKET",
-            messagingSenderId: "SEU_MESSAGING_SENDER_ID",
-            appId: "SEU_APP_ID"
+            apiKey: "AIzaSyCtZG8GZS4CTdiFJQJQgncn8rGxtUvNMLs",
+            authDomain: "dados-pcp.firebaseapp.com",
+            projectId: "dados-pcp",
+            storageBucket: "dados-pcp.firebasestorage.app",
+            messagingSenderId: "674776626674",
+            appId: "1:674776626674:web:c582e4736a136d8777e76b",
+            measurementId: "G-9RM5EFDD1S"
         };
 
-        // Inicializar Firebase de forma segura
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        const db = firebase.firestore();
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getFirestore(app);
 
-        // Arrays de Estado Local
         let reservations = [];
         let completedReservations = [];
         let cancelledReservations = [];
         let historicalLog = [];
-
         let currentGlobalUnit = 'Ambas';
+        let chartsInstance = { mg1: null, mg4: null, both: null };
         let parsedExcelData = null;
-        let pendingActionData = null;
 
-        window.onload = function() {
-            initFirebaseListeners();
+        window.onload = async function() {
+            await loadDataFromFirebase();
             switchTab('geral');
             
             const now = new Date();
@@ -562,61 +552,61 @@
             if (document.getElementById('resPcpDate')) document.getElementById('resPcpDate').value = todayStr;
         };
 
-        // Sincronização em tempo real com o Firestore com fallback local
-        function initFirebaseListeners() {
-            db.collection("reservations").onSnapshot((snapshot) => {
+        async function loadDataFromFirebase() {
+            try {
                 reservations = [];
-                snapshot.forEach((doc) => reservations.push({ id: doc.id, ...doc.data() }));
-                localStorage.setItem('pcp_reservations_backup', JSON.stringify(reservations));
-                refreshAllViews();
-            }, (error) => {
-                console.warn("Erro ao ler do Firebase, usando cache local:", error);
-                const local = localStorage.getItem('pcp_reservations_backup');
-                if (local) reservations = JSON.parse(local);
-                refreshAllViews();
-            });
-
-            db.collection("completedReservations").onSnapshot((snapshot) => {
                 completedReservations = [];
-                snapshot.forEach((doc) => completedReservations.push({ id: doc.id, ...doc.data() }));
-                refreshAllViews();
-            }, () => {});
-
-            db.collection("cancelledReservations").onSnapshot((snapshot) => {
                 cancelledReservations = [];
-                snapshot.forEach((doc) => cancelledReservations.push({ id: doc.id, ...doc.data() }));
-                refreshAllViews();
-            }, () => {});
-
-            db.collection("historicalLog").onSnapshot((snapshot) => {
                 historicalLog = [];
-                snapshot.forEach((doc) => historicalLog.push({ id: doc.id, ...doc.data() }));
+
+                const querySnapshot = await getDocs(collection(db, "pcp_database"));
+                querySnapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    const item = { id: docSnap.id, ...data };
+                    
+                    if (item.type === 'completed') completedReservations.push(item);
+                    else if (item.type === 'cancelled') cancelledReservations.push(item);
+                    else reservations.push(item);
+
+                    if (item.arrivalDate || item.date) {
+                        historicalLog.push({
+                            type: item.type === 'completed' ? 'completed' : item.type === 'cancelled' ? 'cancelled' : 'arrival',
+                            unit: item.unit,
+                            date: item.arrivalDate || item.date,
+                            qty: Number(item.originalQty || item.qty),
+                            client: item.client
+                        });
+                    }
+                });
                 refreshAllViews();
-            }, () => {});
+            } catch (e) {
+                console.error("Erro ao carregar do Firebase: ", e);
+                showToast("Erro ao conectar com o banco de dados.", "rose");
+            }
         }
 
-        function changeGlobalUnit(val) {
+        window.changeGlobalUnit = function(val) {
             currentGlobalUnit = val;
             refreshAllViews();
             showToast('Filtro de unidade aplicado: ' + val);
-        }
+        };
 
-        function getFilteredReservations() {
+        window.getFilteredReservations = function() {
             if (currentGlobalUnit === 'Ambas') return reservations;
             return reservations.filter(r => r.unit === currentGlobalUnit);
-        }
+        };
 
-        function getFilteredCompleted() {
+        window.getFilteredCompleted = function() {
             if (currentGlobalUnit === 'Ambas') return completedReservations;
             return completedReservations.filter(r => r.unit === currentGlobalUnit);
-        }
+        };
 
-        function getFilteredCancelled() {
+        window.getFilteredCancelled = function() {
             if (currentGlobalUnit === 'Ambas') return cancelledReservations;
             return cancelledReservations.filter(r => r.unit === currentGlobalUnit);
-        }
+        };
 
-        function toggleMenu() {
+        window.toggleMenu = function() {
             const menu = document.getElementById('sideMenu');
             const overlay = document.getElementById('sideMenuOverlay');
             const isOpen = !menu.classList.contains('-translate-x-full');
@@ -631,9 +621,9 @@
                     menu.classList.remove('-translate-x-full');
                 }, 10);
             }
-        }
+        };
 
-        function switchTab(tabId) {
+        window.switchTab = function(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.getElementById('tab-' + tabId).classList.remove('hidden');
 
@@ -645,9 +635,9 @@
                 activeMenu.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition text-white bg-indigo-600 shadow";
             }
             refreshAllViews();
-        }
+        };
 
-        function refreshAllViews() {
+        window.refreshAllViews = function() {
             renderGeral();
             renderAberto();
             renderClientes();
@@ -655,15 +645,14 @@
             renderCanceladas();
             renderFluxo();
             renderCharts();
-        }
+        };
 
-        function renderGeral() {
+        window.renderGeral = function() {
             const query = (document.getElementById('geralSearch').value || '').toLowerCase();
             const list = getFilteredReservations().filter(item => 
-                (item.machine || '').toLowerCase().includes(query) || 
-                (item.client || '').toLowerCase().includes(query) || 
-                (item.item || '').toLowerCase().includes(query) ||
-                (item.desc || '').toLowerCase().includes(query)
+                item.machine.toLowerCase().includes(query) || 
+                item.client.toLowerCase().includes(query) || 
+                item.item.toLowerCase().includes(query)
             );
 
             const tbody = document.getElementById('geralTableBody');
@@ -690,28 +679,27 @@
                         <td class="py-3 px-4 font-extrabold text-slate-700">${item.originalQty || item.qty} kg</td>
                         <td class="py-3 px-4 font-extrabold text-slate-900 flex items-center space-x-2">
                             <span>${item.qty} kg</span>
-                            <button onclick="openQtyModal('${item.id}', ${item.qty})" class="text-indigo-700 hover:text-indigo-900 p-1.5 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition font-bold" title="Editar quantidade"><i class="fa-solid fa-pen text-xs"></i></button>
+                            <button onclick="openQtyModal('${item.id}', ${item.qty})" class="text-indigo-700 hover:text-indigo-900 p-1.5 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition font-bold"><i class="fa-solid fa-pen text-xs"></i></button>
                         </td>
                         <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.unit)}</td>
                         <td class="py-3 px-4">${statusBadge}</td>
                         <td class="py-3 px-4 text-slate-700 text-xs font-semibold">${formatDate(item.arrivalDate)}</td>
                         <td class="py-3 px-4 text-slate-700 text-xs font-semibold">${formatDate(item.pcpDate)}</td>
                         <td class="py-3 px-4 text-right space-x-1">
-                            <button onclick="promptAction('${item.id}', 'concluir')" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 p-1.5 rounded-lg text-xs font-bold transition" title="Marcar Concluída"><i class="fa-solid fa-check"></i></button>
-                            <button onclick="promptAction('${item.id}', 'cancelar')" class="bg-rose-100 hover:bg-rose-200 text-rose-800 p-1.5 rounded-lg text-xs font-bold transition" title="Cancelar Reserva"><i class="fa-solid fa-xmark"></i></button>
+                            <button onclick="promptAction('${item.id}', 'concluir')" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 p-1.5 rounded-lg text-xs font-bold transition" title="Concluir"><i class="fa-solid fa-check"></i></button>
+                            <button onclick="promptAction('${item.id}', 'cancelar')" class="bg-rose-100 hover:bg-rose-200 text-rose-800 p-1.5 rounded-lg text-xs font-bold transition" title="Cancelar"><i class="fa-solid fa-xmark"></i></button>
                         </td>
                     `;
                     tbody.appendChild(tr);
                 });
             }
-        }
+        };
 
-        function renderAberto() {
+        window.renderAberto = function() {
             const query = (document.getElementById('abertoClientFilter').value || '').toLowerCase();
             const list = getFilteredReservations().filter(item => 
-                (item.status === 'Disponível' || item.status === 'Parcial') && (item.client || '').toLowerCase().includes(query)
+                (item.status === 'Disponível' || item.status === 'Parcial') && item.client.toLowerCase().includes(query)
             );
-
             const tbody = document.getElementById('abertoTableBody');
             const empty = document.getElementById('abertoEmpty');
             tbody.innerHTML = '';
@@ -723,11 +711,11 @@
                 list.forEach(item => {
                     const agingDays = calculateAging(item.arrivalDate);
                     const statusBadge = item.status === 'Disponível' 
-                        ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">Disponível</span>'
-                        : '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">Parcial</span>';
+                        ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">Disponível</span>'
+                        : '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900">Parcial</span>';
 
                     const tr = document.createElement('tr');
-                    tr.className = "hover:bg-slate-50 transition-colors";
+                    tr.className = "hover:bg-slate-50";
                     tr.innerHTML = `
                         <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(item.client)}</td>
                         <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.machine)}</td>
@@ -735,15 +723,15 @@
                         <td class="py-3 px-4 font-extrabold text-slate-900">${item.qty} kg</td>
                         <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.unit)}</td>
                         <td class="py-3 px-4">${statusBadge}</td>
-                        <td class="py-3 px-4"><span class="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">${agingDays} dias em aberto</span></td>
+                        <td class="py-3 px-4"><span class="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-100 text-slate-800">${agingDays} dias</span></td>
                         <td class="py-3 px-4 text-slate-700 text-xs font-semibold">${formatDate(item.arrivalDate)}</td>
                     `;
                     tbody.appendChild(tr);
                 });
             }
-        }
+        };
 
-        function renderClientes() {
+        window.renderClientes = function() {
             const list = getFilteredReservations().filter(r => r.status === 'Disponível' || r.status === 'Parcial');
             const clientCounts = {};
             list.forEach(item => {
@@ -759,127 +747,116 @@
             container.innerHTML = '';
 
             if (sortedClients.length === 0) {
-                container.innerHTML = '<p class="text-xs text-slate-600 font-medium p-2">Nenhum cliente com reservas abertas.</p>';
+                container.innerHTML = '<p class="text-xs text-slate-600 font-medium p-2">Nenhum cliente ativo.</p>';
                 return;
             }
 
             sortedClients.forEach((sc, idx) => {
                 const btn = document.createElement('button');
-                btn.className = "w-full text-left p-3 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition flex items-center justify-between group shadow-sm bg-white";
+                btn.className = "w-full text-left p-3 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition flex items-center justify-between bg-white shadow-sm";
                 btn.innerHTML = `
                     <div class="flex items-center space-x-3">
-                        <span class="w-6 h-6 rounded-full bg-slate-100 group-hover:bg-indigo-200 group-hover:text-indigo-900 text-slate-800 font-bold text-xs flex items-center justify-center">${idx + 1}</span>
+                        <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-800 font-bold text-xs flex items-center justify-center">${idx + 1}</span>
                         <span class="font-bold text-slate-900 text-sm">${escapeHtml(sc.client)}</span>
                     </div>
-                    <span class="bg-indigo-100 text-indigo-900 text-xs font-extrabold px-2.5 py-1 rounded-full">${sc.totalQty} kg total</span>
+                    <span class="bg-indigo-100 text-indigo-900 text-xs font-extrabold px-2.5 py-1 rounded-full">${sc.totalQty} kg</span>
                 `;
                 btn.onclick = () => selectClientForDetail(sc.client);
                 container.appendChild(btn);
             });
-
             if (sortedClients.length > 0) selectClientForDetail(sortedClients[0].client);
-        }
+        };
 
-        function selectClientForDetail(clientName) {
-            document.getElementById('clientDetailHeader').innerText = 'Reservas Ativas do Cliente: ' + clientName;
+        window.selectClientForDetail = function(clientName) {
+            document.getElementById('clientDetailHeader').innerText = 'Reservas Ativas: ' + clientName;
             const list = getFilteredReservations().filter(r => r.client === clientName && (r.status === 'Disponível' || r.status === 'Parcial'));
             const tbody = document.getElementById('clientDetailTableBody');
             tbody.innerHTML = '';
-
             list.forEach(item => {
-                const agingDays = calculateAging(item.arrivalDate);
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="py-2.5 px-3 font-bold text-slate-900">${escapeHtml(item.machine)}</td>
                     <td class="py-2.5 px-3 font-semibold text-slate-800">${escapeHtml(item.item)}</td>
                     <td class="py-2.5 px-3 font-extrabold text-slate-900">${item.qty} kg</td>
-                    <td class="py-2.5 px-3"><span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${item.status === 'Disponível' ? 'bg-blue-100 text-blue-900 border border-blue-200' : 'bg-amber-100 text-amber-900 border border-amber-200'}">${item.status}</span></td>
-                    <td class="py-2.5 px-3 font-semibold text-slate-700">${agingDays} dias</td>
+                    <td class="py-2.5 px-3"><span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-900">${item.status}</span></td>
+                    <td class="py-2.5 px-3 font-semibold text-slate-700">${calculateAging(item.arrivalDate)} dias</td>
                 `;
                 tbody.appendChild(tr);
             });
-        }
+        };
 
-        function renderConcluidas() {
+        window.renderConcluidas = function() {
             const list = getFilteredCompleted();
             const tbody = document.getElementById('concluidasTableBody');
             const empty = document.getElementById('concluidasEmpty');
             tbody.innerHTML = '';
-
             if (list.length === 0) {
                 empty.classList.remove('hidden');
             } else {
                 empty.classList.add('hidden');
                 list.forEach(item => {
-                    const durationOpen = calculateDuration(item.arrivalDate, item.date);
                     const tr = document.createElement('tr');
-                    tr.className = "hover:bg-slate-50 transition-colors";
+                    tr.className = "hover:bg-slate-50";
                     tr.innerHTML = `
                         <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(item.client)}</td>
                         <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.machine)}</td>
                         <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.item)}</td>
                         <td class="py-3 px-4 font-extrabold text-slate-900">${item.qty} kg</td>
                         <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.unit)}</td>
-                        <td class="py-3 px-4 font-bold text-indigo-900">${durationOpen} dias em aberto</td>
+                        <td class="py-3 px-4 font-bold text-indigo-900">${calculateDuration(item.arrivalDate, item.date)} dias</td>
                         <td class="py-3 px-4 text-slate-700 text-xs font-semibold">${formatDate(item.date)}</td>
                     `;
                     tbody.appendChild(tr);
                 });
             }
-        }
+        };
 
-        function renderCanceladas() {
+        window.renderCanceladas = function() {
             const list = getFilteredCancelled();
             const tbody = document.getElementById('canceladasTableBody');
             const empty = document.getElementById('canceladasEmpty');
             tbody.innerHTML = '';
-
             if (list.length === 0) {
                 empty.classList.remove('hidden');
             } else {
                 empty.classList.add('hidden');
                 list.forEach(item => {
-                    const durationOpen = calculateDuration(item.arrivalDate, item.date);
                     const tr = document.createElement('tr');
-                    tr.className = "hover:bg-slate-50 transition-colors";
+                    tr.className = "hover:bg-slate-50";
                     tr.innerHTML = `
                         <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(item.client)}</td>
                         <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.machine)}</td>
                         <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.item)}</td>
                         <td class="py-3 px-4 font-extrabold text-slate-900">${item.qty} kg</td>
                         <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.unit)}</td>
-                        <td class="py-3 px-4 font-bold text-amber-800">${durationOpen} dias em aberto</td>
-                        <td class="py-3 px-4 text-slate-700 text-xs font-medium">${escapeHtml(item.reason || 'Sem motivo')}</td>
+                        <td class="py-3 px-4 font-bold text-amber-800">${calculateDuration(item.arrivalDate, item.date)} dias</td>
+                        <td class="py-3 px-4 text-slate-700 text-xs font-medium">${escapeHtml(item.reason || '')}</td>
                         <td class="py-3 px-4 text-slate-700 text-xs font-semibold">${formatDate(item.date)}</td>
                     `;
                     tbody.appendChild(tr);
                 });
             }
-        }
+        };
 
-        function renderFluxo() {
+        window.renderFluxo = function() {
             const tbody = document.getElementById('fluxoTableBody');
             tbody.innerHTML = '';
-
             let all = [];
             reservations.forEach(r => all.push({ ...r, flowState: 'Ativa' }));
             completedReservations.forEach(c => all.push({ ...c, flowState: 'Concluída' }));
             cancelledReservations.forEach(x => all.push({ ...x, flowState: 'Cancelada' }));
 
             if (all.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-slate-500 font-semibold">Nenhum registro encontrado.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-slate-500 font-semibold">Nenhum registro.</td></tr>';
                 return;
             }
 
             all.forEach(item => {
-                const stateBadge = item.flowState === 'Ativa' 
-                    ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">Ativa</span>'
-                    : item.flowState === 'Concluída'
-                    ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">Concluída</span>'
-                    : '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800">Cancelada</span>';
+                const stateBadge = item.flowState === 'Ativa' ? '<span class="px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800">Ativa</span>' :
+                                   item.flowState === 'Concluída' ? '<span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800">Concluída</span>' :
+                                   '<span class="px-2 py-0.5 rounded text-xs bg-rose-100 text-rose-800">Cancelada</span>';
 
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 transition-colors";
                 tr.innerHTML = `
                     <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(item.client)}</td>
                     <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.machine)}</td>
@@ -887,133 +864,33 @@
                     <td class="py-3 px-4 font-extrabold text-slate-900">${item.qty} kg</td>
                     <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.unit)}</td>
                     <td class="py-3 px-4">${stateBadge}</td>
-                    <td class="py-3 px-4 text-right space-x-1">
-                        ${item.flowState === 'Cancelada' ? `<button onclick="restoreCancelled('${item.id}')" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1 rounded-lg text-xs font-bold transition"><i class="fa-solid fa-rotate-left mr-1"></i> Restaurar</button>` : ''}
-                        <button onclick="deleteFlowItem('${item.id}', '${item.flowState}')" class="bg-rose-100 hover:bg-rose-200 text-rose-800 p-1.5 rounded-lg text-xs font-bold transition"><i class="fa-solid fa-trash"></i></button>
+                    <td class="py-3 px-4 text-right">
+                        <button onclick="deleteFirebaseItem('${item.id}')" class="bg-rose-100 hover:bg-rose-200 text-rose-800 p-1.5 rounded-lg text-xs font-bold transition" title="Excluir do Banco"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
-        }
+        };
 
-        // Operações no Firestore
-        function saveReservation(e) {
-            e.preventDefault();
-            const newRes = {
-                machine: document.getElementById('resMachine').value,
-                client: document.getElementById('resClient').value,
-                item: document.getElementById('resItem').value,
-                desc: document.getElementById('resDesc').value,
-                qty: Number(document.getElementById('resQty').value),
-                originalQty: Number(document.getElementById('resQty').value),
-                unit: document.getElementById('resUnit').value,
-                status: 'Disponível',
-                arrivalDate: document.getElementById('resArrivalDate').value || new Date().toISOString().split('T')[0],
-                pcpDate: document.getElementById('resPcpDate').value || new Date().toISOString().split('T')[0],
-                reason: ''
-            };
-
-            db.collection("reservations").add(newRes).then(() => {
-                db.collection("historicalLog").add({ type: 'arrival', unit: newRes.unit, date: newRes.arrivalDate, qty: newRes.qty, client: newRes.client });
-                showToast('Nova reserva salva no Firebase com sucesso!');
-                closeModal('reservationModal');
-                document.getElementById('reservationForm').reset();
-            }).catch(err => {
-                showToast('Erro ao salvar no Firebase. Verifique conexão.', 'rose');
-                console.error(err);
-            });
-        }
-
-        function openQtyModal(id, currentQty) {
-            document.getElementById('editQtyId').value = id;
-            document.getElementById('newQtyInput').value = currentQty;
-            openModal('qtyModal');
-        }
-
-        function confirmEditQty() {
-            const id = document.getElementById('editQtyId').value;
-            const newQty = Number(document.getElementById('newQtyInput').value);
-            const item = reservations.find(r => r.id === id);
-
-            if (item) {
-                const status = newQty < (item.originalQty || item.qty) ? 'Parcial' : 'Disponível';
-                db.collection("reservations").doc(id).update({ qty: newQty, status: status }).then(() => {
-                    closeModal('qtyModal');
-                    showToast('Quantidade atualizada no Firebase!');
-                });
+        window.deleteFirebaseItem = async function(id) {
+            if (confirm('Deseja excluir este registro do Firebase?')) {
+                try {
+                    await deleteDoc(doc(db, "pcp_database", id));
+                    showToast('Excluído com sucesso!');
+                    await loadDataFromFirebase();
+                } catch (e) {
+                    console.error(e);
+                    showToast('Erro ao excluir', 'rose');
+                }
             }
-        }
+        };
 
-        function promptAction(id, actionType) {
-            pendingActionData = { id, actionType };
-            document.getElementById('actionModalTitle').innerText = actionType === 'concluir' ? 'Concluir Reserva' : 'Cancelar Reserva';
-            document.getElementById('actionModalText').innerText = actionType === 'concluir' ? 'Deseja marcar como concluída?' : 'Deseja cancelar esta reserva?';
-            document.getElementById('actionReasonInput').value = '';
-            openModal('actionModal');
-        }
+        window.recalculateCharts = async function() {
+            await loadDataFromFirebase();
+            showToast('Dados recarregados do Firebase!');
+        };
 
-        function executeAction() {
-            const reason = document.getElementById('actionReasonInput').value.trim();
-            if (!reason) { showToast('Informe o motivo.', 'rose'); return; }
-
-            const { id, actionType } = pendingActionData;
-            const item = reservations.find(r => r.id === id);
-            if (!item) return;
-
-            const today = new Date().toISOString().split('T')[0];
-            const targetCollection = actionType === 'concluir' ? 'completedReservations' : 'cancelledReservations';
-            
-            const logEntry = {
-                machine: item.machine, client: item.client, item: item.item, desc: item.desc,
-                qty: item.qty, originalQty: item.originalQty || item.qty, unit: item.unit,
-                reason: reason, date: today, arrivalDate: item.arrivalDate
-            };
-
-            db.collection(targetCollection).add(logEntry).then(() => {
-                db.collection("historicalLog").add({ type: actionType === 'concluir' ? 'completed' : 'cancelled', unit: item.unit, date: today, qty: Number(item.originalQty || item.qty), client: item.client });
-                db.collection("reservations").doc(id).delete().then(() => {
-                    closeModal('actionModal');
-                    showToast(actionType === 'concluir' ? 'Reserva concluída!' : 'Reserva cancelada.');
-                });
-            });
-        }
-
-        function restoreCancelled(id) {
-            const item = cancelledReservations.find(x => x.id === id);
-            if (!item) return;
-
-            const restored = {
-                machine: item.machine, client: item.client, item: item.item, desc: item.desc || '',
-                qty: item.qty, originalQty: item.originalQty || item.qty, unit: item.unit,
-                status: 'Disponível', arrivalDate: item.arrivalDate || new Date().toISOString().split('T')[0],
-                pcpDate: new Date().toISOString().split('T')[0], reason: ''
-            };
-
-            db.collection("reservations").add(restored).then(() => {
-                db.collection("cancelledReservations").doc(id).delete().then(() => {
-                    showToast('Reserva restaurada com sucesso!');
-                });
-            });
-        }
-
-        function deleteFlowItem(id, state) {
-            if (confirm('Deseja realmente excluir este registro?')) {
-                const colName = state === 'Ativa' ? 'reservations' : state === 'Concluída' ? 'completedReservations' : 'cancelledReservations';
-                db.collection(colName).doc(id).delete().then(() => showToast('Registro excluído!'));
-            }
-        }
-
-        function resetChartsStorage() {
-            if (confirm('Deseja limpar todo o histórico de logs do Firebase?')) {
-                db.collection("historicalLog").get().then(snapshot => {
-                    let batch = db.batch();
-                    snapshot.docs.forEach(doc => batch.delete(doc.ref));
-                    batch.commit().then(() => showToast('Histórico limpo!'));
-                });
-            }
-        }
-
-        function renderCharts() {
+        window.renderCharts = function() {
             const selectedMonthStr = document.getElementById('chartMonthFilter').value;
 
             function getMonthlyStats(unitFilter) {
@@ -1025,7 +902,6 @@
                     if (!log.date) return;
                     const parts = log.date.split('-');
                     const logYearMonth = `${parts[0]}-${parts[1]}`;
-                    
                     if (selectedMonthStr && logYearMonth !== selectedMonthStr) return;
                     if (unitFilter !== 'Ambas' && log.unit !== unitFilter) return;
 
@@ -1043,9 +919,9 @@
             renderSingleChart('chartMG1', 'listMG1', getMonthlyStats('MG1'), 'MG1', selectedMonthStr);
             renderSingleChart('chartMG4', 'listMG4', getMonthlyStats('MG4'), 'MG4', selectedMonthStr);
             renderSingleChart('chartBoth', 'listBoth', getMonthlyStats('Ambas'), 'Ambas', selectedMonthStr);
-        }
+        };
 
-        function renderSingleChart(canvasId, listId, stats, unitName, monthStr) {
+        window.renderSingleChart = function(canvasId, listId, stats, unitName, monthStr) {
             const ctx = document.getElementById(canvasId).getContext('2d');
             if (window[canvasId + 'Obj']) window[canvasId + 'Obj'].destroy();
 
@@ -1060,9 +936,10 @@
                     ]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12, weight: 'bold' }, color: '#1e293b' } } },
-                    scales: { y: { beginAtZero: true }, x: {} }
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12, weight: 'bold' } } } },
+                    scales: { y: { beginAtZero: true } }
                 }
             });
 
@@ -1071,7 +948,8 @@
             let clientSet = new Set();
             historicalLog.forEach(log => {
                 if (log.date) {
-                    const ym = log.date.substring(0, 7);
+                    const parts = log.date.split('-');
+                    const ym = `${parts[0]}-${parts[1]}`;
                     if (monthStr && ym !== monthStr) return;
                     if (unitName !== 'Ambas' && log.unit !== unitName) return;
                     if (log.client) clientSet.add(log.client);
@@ -1088,18 +966,123 @@
                     listEl.appendChild(badge);
                 });
             }
-        }
+        };
 
-        // Importação Excel e Utilitários
-        function downloadExcelTemplate() {
-            const templateData = [{ Máquina: "Torno CNC 01", Cliente: "Cliente Exemplo", Item: "Eixo Aço", Descrição: "Peça usinada", Quantidade: 50, Unidade: "MG1", DataChegada: "2026-03-01", DataPCP: "2026-03-20" }];
+        window.downloadPDFReport = function() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const monthStr = document.getElementById('chartMonthFilter').value || 'Geral';
+            doc.setFontSize(16);
+            doc.text("PCP - Relatório Firebase", 14, 20);
+            doc.save(`Relatorio_PCP_${monthStr}.pdf`);
+            showToast('PDF gerado!');
+        };
+
+        window.openModal = function(modalId) {
+            const modal = document.getElementById(modalId);
+            const container = document.getElementById(modalId + 'Container') || modal.firstElementChild;
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); container.classList.remove('scale-95'); container.classList.add('scale-100'); }, 10);
+        };
+
+        window.closeModal = function(modalId) {
+            const modal = document.getElementById(modalId);
+            const container = document.getElementById(modalId + 'Container') || modal.firstElementChild;
+            modal.classList.add('opacity-0');
+            container.classList.remove('scale-100');
+            container.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        window.saveReservation = async function(e) {
+            e.preventDefault();
+            const machine = document.getElementById('resMachine').value;
+            const client = document.getElementById('resClient').value;
+            const item = document.getElementById('resItem').value;
+            const desc = document.getElementById('resDesc').value;
+            const qty = Number(document.getElementById('resQty').value);
+            const unit = document.getElementById('resUnit').value;
+            const arrivalDate = document.getElementById('resArrivalDate').value;
+            const pcpDate = document.getElementById('resPcpDate').value;
+
+            try {
+                await addDoc(collection(db, "pcp_database"), {
+                    machine, client, item, desc, qty, originalQty: qty, unit,
+                    status: 'Disponível', arrivalDate, pcpDate, type: 'active', reason: ''
+                });
+                showToast('Salvo no Firebase com sucesso!');
+                closeModal('reservationModal');
+                document.getElementById('reservationForm').reset();
+                await loadDataFromFirebase();
+            } catch (err) {
+                console.error(err);
+                showToast('Erro ao salvar no Firebase', 'rose');
+            }
+        };
+
+        window.openQtyModal = function(id, currentQty) {
+            document.getElementById('editQtyId').value = id;
+            document.getElementById('newQtyInput').value = currentQty;
+            openModal('qtyModal');
+        };
+
+        window.confirmEditQty = async function() {
+            const id = document.getElementById('editQtyId').value;
+            const newQty = Number(document.getElementById('newQtyInput').value);
+            const item = reservations.find(r => r.id === id);
+            if (item) {
+                try {
+                    const status = newQty < (item.originalQty || item.qty) ? 'Parcial' : 'Disponível';
+                    await updateDoc(doc(db, "pcp_database", id), { qty: newQty, status: status });
+                    closeModal('qtyModal');
+                    showToast('Atualizado!');
+                    await loadDataFromFirebase();
+                } catch (e) {
+                    console.error(e);
+                    showToast('Erro ao atualizar', 'rose');
+                }
+            }
+        };
+
+        let pendingActionData = null;
+        window.promptAction = function(id, actionType) {
+            pendingActionData = { id, actionType };
+            document.getElementById('actionModalTitle').innerText = actionType === 'concluir' ? 'Concluir' : 'Cancelar';
+            document.getElementById('actionModalText').innerText = actionType === 'concluir' ? 'Deseja concluir?' : 'Deseja cancelar?';
+            document.getElementById('actionReasonInput').value = '';
+            openModal('actionModal');
+        };
+
+        window.executeAction = async function() {
+            const reason = document.getElementById('actionReasonInput').value.trim();
+            if (!reason) { showToast('Informe o motivo', 'rose'); return; }
+            const { id, actionType } = pendingActionData;
+            const item = reservations.find(r => r.id === id);
+            if (item) {
+                try {
+                    const today = new Date().toISOString().split('T')[0];
+                    const newType = actionType === 'concluir' ? 'completed' : 'cancelled';
+                    await updateDoc(doc(db, "pcp_database", id), { type: newType, reason: reason, date: today });
+                    closeModal('actionModal');
+                    showToast('Ação realizada!');
+                    await loadDataFromFirebase();
+                } catch (e) {
+                    console.error(e);
+                    showToast('Erro', 'rose');
+                }
+            }
+        };
+
+        window.downloadExcelTemplate = function() {
+            const templateData = [{ Máquina: "Torno CNC 01", Cliente: "Cliente Exemplo", Item: "Eixo Aço", Descrição: "Usinado", Quantidade: 50, Unidade: "MG1", DataChegada: "2026-03-01", DataPCP: "2026-03-20" }];
             const worksheet = XLSX.utils.json_to_sheet(templateData);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Reservas");
-            XLSX.writeFile(workbook, "modelo_reservas_pcp.xlsx");
-        }
+            XLSX.writeFile(workbook, "modelo_pcp.xlsx");
+            showToast('Modelo baixado!');
+        };
 
-        function handleExcelFileSelect(event) {
+        window.handleExcelFileSelect = function(event) {
             const file = event.target.files[0];
             if (!file) return;
             document.getElementById('fileNameLabel').innerText = file.name;
@@ -1108,69 +1091,67 @@
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
                 parsedExcelData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                showToast(`Arquivo lido! ${parsedExcelData.length} linhas.`);
+                showToast(`Lido com sucesso: ${parsedExcelData.length} linhas.`);
             };
             reader.readAsArrayBuffer(file);
+        };
+
+        window.processExcelImport = async function() {
+            if (!parsedExcelData) { showToast('Selecione um arquivo', 'rose'); return; }
+            try {
+                for (let row of parsedExcelData) {
+                    await addDoc(collection(db, "pcp_database"), {
+                        machine: row.Máquina || 'Máq 1',
+                        client: row.Cliente || 'Cliente',
+                        item: row.Item || 'Item',
+                        desc: row.Descrição || '',
+                        qty: Number(row.Quantidade || 10),
+                        originalQty: Number(row.Quantidade || 10),
+                        unit: (row.Unidade || 'MG1').toUpperCase() === 'MG4' ? 'MG4' : 'MG1',
+                        status: 'Disponível',
+                        arrivalDate: row.DataChegada || new Date().toISOString().split('T')[0],
+                        pcpDate: row.DataPCP || new Date().toISOString().split('T')[0],
+                        type: 'active',
+                        reason: ''
+                    });
+                }
+                closeModal('bulkModal');
+                showToast('Importado para o Firebase!');
+                await loadDataFromFirebase();
+            } catch (e) {
+                console.error(e);
+                showToast('Erro ao importar', 'rose');
+            }
+        };
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const p = dateStr.split('-');
+            return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : dateStr;
         }
 
-        function processExcelImport() {
-            if (!parsedExcelData) return;
-            parsedExcelData.forEach(row => {
-                const newRes = {
-                    machine: row.Máquina || row.Maquina || 'Máq.',
-                    client: row.Cliente || 'Cliente',
-                    item: row.Item || 'Item',
-                    desc: row.Descrição || '',
-                    qty: Number(row.Quantidade || 10),
-                    originalQty: Number(row.Quantidade || 10),
-                    unit: (row.Unidade || 'MG1').toUpperCase() === 'MG4' ? 'MG4' : 'MG1',
-                    status: 'Disponível',
-                    arrivalDate: row.DataChegada || new Date().toISOString().split('T')[0],
-                    pcpDate: row.DataPCP || new Date().toISOString().split('T')[0],
-                    reason: ''
-                };
-                db.collection("reservations").add(newRes);
-                db.collection("historicalLog").add({ type: 'arrival', unit: newRes.unit, date: newRes.arrivalDate, qty: newRes.qty, client: newRes.client });
-            });
-            closeModal('bulkModal');
-            showToast('Importação concluída no Firebase!');
+        function calculateAging(dateStr) {
+            if (!dateStr) return 0;
+            return Math.ceil(Math.abs(new Date() - new Date(dateStr)) / (1000 * 60 * 60 * 24));
         }
 
-        function downloadPDFReport() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.text("PCP - Relatório Mensal", 14, 20);
-            doc.save("Relatorio_PCP.pdf");
+        function calculateDuration(start, end) {
+            if (!start || !end) return 0;
+            return Math.ceil(Math.abs(new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24));
         }
 
-        function openModal(id) {
-            document.getElementById(id).classList.remove('hidden', 'opacity-0');
-        }
-        function closeModal(id) {
-            document.getElementById(id).classList.add('hidden');
-        }
-        function formatDate(d) {
-            if (!d) return '';
-            const p = d.split('-');
-            return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d;
-        }
-        function calculateAging(d) {
-            if (!d) return 0;
-            return Math.ceil(Math.abs(new Date() - new Date(d)) / (1000 * 60 * 60 * 24));
-        }
-        function calculateDuration(s, e) {
-            if (!s || !e) return 0;
-            return Math.ceil(Math.abs(new Date(e) - new Date(s)) / (1000 * 60 * 60 * 24));
-        }
-        function showToast(msg, type = 'emerald') {
-            const t = document.getElementById('toast');
-            document.getElementById('toastMessage').innerText = msg;
-            t.classList.remove('translate-y-20', 'opacity-0');
-            setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 3000);
-        }
-        function escapeHtml(str) {
-            return !str ? '' : String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        }
+        window.showToast = function(msgText, type = 'emerald') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').innerText = msgText;
+            document.getElementById('toastIcon').className = type === 'rose' ? 'fa-solid fa-circle-exclamation text-rose-400' : 'fa-solid fa-circle-check text-emerald-400';
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3000);
+        };
+
+        window.escapeHtml = function(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        };
     </script>
 </body>
 </html>
