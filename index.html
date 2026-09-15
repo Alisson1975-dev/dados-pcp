@@ -7,8 +7,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS for real .xlsx parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; font-weight: 400; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -54,7 +58,6 @@
         </div>
     </header>
 
-    <!-- Side Menu Drawer -->
     <div id="sideMenuOverlay" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden opacity-0 transition-opacity duration-300" onclick="toggleMenu()"></div>
     <div id="sideMenu" class="fixed top-0 left-0 bottom-0 w-72 bg-white text-slate-800 z-50 transform -translate-x-full transition-transform duration-300 flex flex-col shadow-2xl border-r border-slate-200">
         <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
@@ -89,13 +92,17 @@
                 <i class="fa-solid fa-circle-xmark w-5 text-center text-rose-600"></i>
                 <span>Reservas Canceladas</span>
             </button>
+            <button onclick="switchTab('fluxo'); toggleMenu();" id="menu-fluxo" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-slate-100 hover:text-slate-900 text-slate-700">
+                <i class="fa-solid fa-sliders w-5 text-center text-purple-600"></i>
+                <span>Fluxo de Reservas</span>
+            </button>
             <button onclick="switchTab('grafico'); toggleMenu();" id="menu-grafico" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition hover:bg-slate-100 hover:text-slate-900 text-slate-700">
                 <i class="fa-solid fa-chart-pie w-5 text-center text-indigo-600"></i>
                 <span>Gráficos & Análises</span>
             </button>
         </div>
         <div class="p-4 border-t border-slate-200 text-xs text-slate-500 text-center bg-slate-50 font-medium">
-            PCP System v2.8 &bull; LocalStorage Sync
+            PCP System v3.1 &bull; Firebase Cloud
         </div>
     </div>
 
@@ -117,6 +124,9 @@
                         </span>
                         <input type="text" id="geralSearch" oninput="renderGeral()" placeholder="Filtrar por Máquina, Cliente ou Item..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
+                    <button onclick="resetData()" class="text-slate-500 hover:text-rose-600 p-2 rounded-xl text-sm transition font-medium" title="Restaurar dados de exemplo">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
                 </div>
             </div>
 
@@ -129,7 +139,8 @@
                                 <th class="py-3 px-4">Cliente</th>
                                 <th class="py-3 px-4">Item</th>
                                 <th class="py-3 px-4">Descrição</th>
-                                <th class="py-3 px-4">Qtd Disp.</th>
+                                <th class="py-3 px-4">Qtd Original</th>
+                                <th class="py-3 px-4">Qtd Disp. (kg)</th>
                                 <th class="py-3 px-4">Unid.</th>
                                 <th class="py-3 px-4">Status</th>
                                 <th class="py-3 px-4">Chegada</th>
@@ -147,12 +158,12 @@
             </div>
         </div>
 
-        <!-- Tab 2: Reservas em Aberto -->
+        <!-- Tab 2: Reservas em Aberto (Disponíveis + Parciais) -->
         <div id="tab-aberto" class="tab-content flex flex-col h-full w-full hidden">
             <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-4 flex flex-col md:flex-row items-center justify-between gap-3 flex-shrink-0">
                 <div class="flex items-center space-x-3 w-full md:w-auto">
                     <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
-                        <i class="fa-solid fa-clock-rotate-left text-amber-600 mr-2"></i> Reservas Disponíveis em Aberto
+                        <i class="fa-solid fa-clock-rotate-left text-amber-600 mr-2"></i> Reservas em Aberto (Disponíveis e Parciais)
                     </h2>
                 </div>
                 <div class="w-full md:w-72">
@@ -167,9 +178,9 @@
                                 <th class="py-3 px-4">Cliente</th>
                                 <th class="py-3 px-4">Máquina</th>
                                 <th class="py-3 px-4">Item</th>
-                                <th class="py-3 px-4">Descrição</th>
-                                <th class="py-3 px-4">Qtd Disp.</th>
+                                <th class="py-3 px-4">Qtd Disp. (kg)</th>
                                 <th class="py-3 px-4">Unidade</th>
+                                <th class="py-3 px-4">Status</th>
                                 <th class="py-3 px-4">Tempo em Aberto</th>
                                 <th class="py-3 px-4">Data Chegada</th>
                             </tr>
@@ -178,18 +189,18 @@
                     </table>
                 </div>
                 <div id="abertoEmpty" class="hidden text-center py-12">
-                    <p class="text-slate-700 font-semibold text-sm">Nenhuma reserva aberta disponível no momento.</p>
+                    <p class="text-slate-700 font-semibold text-sm">Nenhuma reserva aberta no momento.</p>
                 </div>
             </div>
         </div>
 
-        <!-- Tab 3: Clientes com mais reservas -->
+        <!-- Tab 3: Clientes com mais reservas em aberto -->
         <div id="tab-clientes" class="tab-content flex flex-col h-full w-full hidden">
             <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-4 flex-shrink-0">
                 <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
                     <i class="fa-solid fa-users-rectangle text-indigo-600 mr-2"></i> Clientes com Mais Reservas em Aberto
                 </h2>
-                <p class="text-xs text-slate-600 font-medium mt-0.5">Clique no nome de um cliente para inspecionar suas reservas ativas.</p>
+                <p class="text-xs text-slate-600 font-medium mt-0.5">Clique no nome de um cliente para inspecionar suas reservas ativas (ordenado por ordem crescente de volume).</p>
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-grow overflow-hidden">
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-y-auto custom-scrollbar p-3">
@@ -205,9 +216,9 @@
                                 <tr class="bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
                                     <th class="py-2.5 px-3">Máquina</th>
                                     <th class="py-2.5 px-3">Item</th>
-                                    <th class="py-2.5 px-3">Qtd</th>
+                                    <th class="py-2.5 px-3">Qtd (kg)</th>
                                     <th class="py-2.5 px-3">Status</th>
-                                    <th class="py-2.5 px-3">Data PCP</th>
+                                    <th class="py-2.5 px-3">Tempo em Aberto</th>
                                 </tr>
                             </thead>
                             <tbody id="clientDetailTableBody" class="divide-y divide-slate-200 text-xs font-medium"></tbody>
@@ -232,10 +243,9 @@
                                 <th class="py-3 px-4">Cliente</th>
                                 <th class="py-3 px-4">Máquina</th>
                                 <th class="py-3 px-4">Item</th>
-                                <th class="py-3 px-4">Descrição</th>
-                                <th class="py-3 px-4">Qtd</th>
+                                <th class="py-3 px-4">Qtd (kg)</th>
                                 <th class="py-3 px-4">Unidade</th>
-                                <th class="py-3 px-4">Usuário Responsável</th>
+                                <th class="py-3 px-4">Tempo que ficou aberta</th>
                                 <th class="py-3 px-4">Data Conclusão</th>
                             </tr>
                         </thead>
@@ -263,10 +273,10 @@
                                 <th class="py-3 px-4">Cliente</th>
                                 <th class="py-3 px-4">Máquina</th>
                                 <th class="py-3 px-4">Item</th>
-                                <th class="py-3 px-4">Descrição</th>
-                                <th class="py-3 px-4">Qtd</th>
+                                <th class="py-3 px-4">Qtd (kg)</th>
                                 <th class="py-3 px-4">Unidade</th>
-                                <th class="py-3 px-4">Usuário Responsável</th>
+                                <th class="py-3 px-4">Tempo que ficou aberta</th>
+                                <th class="py-3 px-4">Motivo</th>
                                 <th class="py-3 px-4">Data Cancelamento</th>
                             </tr>
                         </thead>
@@ -279,21 +289,72 @@
             </div>
         </div>
 
-        <!-- Tab 6: Gráficos -->
-        <div id="tab-grafico" class="tab-content flex flex-col h-full w-full overflow-y-auto custom-scrollbar hidden space-y-6">
-            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex-shrink-0 flex items-center justify-between">
+        <!-- Tab 6: Fluxo de Reservas -->
+        <div id="tab-fluxo" class="tab-content flex flex-col h-full w-full overflow-y-auto custom-scrollbar hidden space-y-4">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-3 flex-shrink-0">
                 <div>
                     <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
-                        <i class="fa-solid fa-chart-pie text-indigo-600 mr-2"></i> Análise Gráfica Mensal
+                        <i class="fa-solid fa-sliders text-purple-600 mr-2"></i> Fluxo de Reservas & Histórico Geral
                     </h2>
-                    <p class="text-xs text-slate-600 font-medium mt-0.5">Visualização de chegadas, conclusões e cancelamentos por unidade com listas de clientes.</p>
+                    <p class="text-xs text-slate-600 font-medium mt-0.5">Gerencie todas as reservas (ativas, canceladas e concluídas), restaure canceladas, edite, exclua, zere e recalcule gráficos.</p>
+                </div>
+                <div class="flex items-center space-x-2 flex-wrap gap-2">
+                    <button onclick="resetChartsStorage()" class="bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center shadow-sm">
+                        <i class="fa-solid fa-trash-can mr-1.5"></i> Zerar Gráficos
+                    </button>
+                    <button onclick="recalculateCharts()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-300 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center shadow-sm">
+                        <i class="fa-solid fa-calculator mr-1.5"></i> Recalcular Gráficos
+                    </button>
                 </div>
             </div>
 
-            <!-- Gráfico MG1 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 flex-grow flex flex-col overflow-hidden">
+                <div class="p-3 bg-slate-50 border-b border-slate-200 font-bold text-xs text-slate-700 uppercase">
+                    Todas as Reservas do Sistema (Ativas, Concluídas e Canceladas)
+                </div>
+                <div class="overflow-x-auto custom-scrollbar flex-grow">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                                <th class="py-3 px-4">Cliente</th>
+                                <th class="py-3 px-4">Máquina</th>
+                                <th class="py-3 px-4">Item</th>
+                                <th class="py-3 px-4">Qtd (kg)</th>
+                                <th class="py-3 px-4">Unidade</th>
+                                <th class="py-3 px-4">Estado Atual</th>
+                                <th class="py-3 px-4 text-right">Ações de Fluxo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fluxoTableBody" class="divide-y divide-slate-200 text-xs sm:text-sm font-medium"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 7: Gráficos -->
+        <div id="tab-grafico" class="tab-content flex flex-col h-full w-full overflow-y-auto custom-scrollbar hidden space-y-6">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex-shrink-0 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div>
+                    <h2 class="font-bold text-slate-900 text-base sm:text-lg flex items-center">
+                        <i class="fa-solid fa-chart-pie text-indigo-600 mr-2"></i> Análise Gráfica Mensal (em Quilos - kg)
+                    </h2>
+                    <p class="text-xs text-slate-600 font-medium mt-0.5">Contabiliza todos os dados acumulados. Selecione o mês/ano para inspecionar os detalhes.</p>
+                </div>
+                <div class="flex items-center space-x-3 flex-wrap gap-2">
+                    <div class="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-300">
+                        <span class="text-xs font-bold text-slate-700">Mês/Ano:</span>
+                        <input type="month" id="chartMonthFilter" onchange="renderCharts()" class="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer">
+                    </div>
+                    <button onclick="downloadPDFReport()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center shadow">
+                        <i class="fa-solid fa-file-pdf mr-1.5"></i> Baixar Relatório PDF
+                    </button>
+                </div>
+            </div>
+
+            <!-- Gráfico 1: Unidade MG1 -->
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 flex flex-col">
-                    <h3 class="font-bold text-slate-900 text-sm mb-3">Unidade MG1 - Movimentação Mensal</h3>
+                    <h3 class="font-bold text-slate-900 text-sm mb-3">Unidade MG1 - Movimentação Mensal (kg)</h3>
                     <div class="relative h-64 w-full">
                         <canvas id="chartMG1"></canvas>
                     </div>
@@ -304,10 +365,10 @@
                 </div>
             </div>
 
-            <!-- Gráfico MG4 -->
+            <!-- Gráfico 2: Unidade MG4 -->
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 flex flex-col">
-                    <h3 class="font-bold text-slate-900 text-sm mb-3">Unidade MG4 - Movimentação Mensal</h3>
+                    <h3 class="font-bold text-slate-900 text-sm mb-3">Unidade MG4 - Movimentação Mensal (kg)</h3>
                     <div class="relative h-64 w-full">
                         <canvas id="chartMG4"></canvas>
                     </div>
@@ -318,10 +379,10 @@
                 </div>
             </div>
 
-            <!-- Gráfico Consolidado -->
+            <!-- Gráfico 3: MG1 e MG4 Juntos -->
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 flex flex-col">
-                    <h3 class="font-bold text-slate-900 text-sm mb-3">Consolidado (MG1 & MG4) - Movimentação Mensal</h3>
+                    <h3 class="font-bold text-slate-900 text-sm mb-3">Consolidado (MG1 & MG4) - Movimentação Mensal (kg)</h3>
                     <div class="relative h-64 w-full">
                         <canvas id="chartBoth"></canvas>
                     </div>
@@ -361,7 +422,7 @@
                         <input type="text" id="resItem" required placeholder="Ex: Eixo Aço 1040" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Quantidade Disponível</label>
+                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Quantidade (kg)</label>
                         <input type="number" id="resQty" min="1" required placeholder="Ex: 50" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                 </div>
@@ -394,17 +455,17 @@
         </div>
     </div>
 
-    <!-- Modal: Excel (.xlsx) -->
+    <!-- Modal: Inserção em Massa Excel (.xlsx) -->
     <div id="bulkModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
         <div class="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="bulkModalContainer">
             <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-                <h3 class="font-bold text-slate-900 text-base">Inserir em Massa (Excel .xlsx)</h3>
+                <h3 class="font-bold text-slate-900 text-base">Inserir em Massa (Arquivo Excel .xlsx)</h3>
                 <button onclick="closeModal('bulkModal')" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
             <div class="p-6 space-y-4">
-                <p class="text-xs text-slate-700 font-medium">Baixe o modelo oficial, preencha no Excel e selecione o arquivo abaixo.</p>
+                <p class="text-xs text-slate-700 font-medium">Baixe o modelo oficial com cada aba em uma coluna, preencha no Excel e selecione o arquivo abaixo.</p>
                 
                 <button onclick="downloadExcelTemplate()" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 py-2.5 rounded-xl text-sm font-bold transition flex items-center justify-center space-x-2 shadow-sm">
                     <i class="fa-solid fa-download"></i>
@@ -431,7 +492,7 @@
     <div id="qtyModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
         <div class="bg-white rounded-2xl shadow-xl max-w-xs w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="qtyModalContainer">
             <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-                <h3 class="font-bold text-slate-900 text-sm">Editar Quantidade Disponível</h3>
+                <h3 class="font-bold text-slate-900 text-sm">Editar Quantidade (kg)</h3>
                 <button onclick="closeModal('qtyModal')" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
@@ -439,8 +500,9 @@
             <div class="p-5 space-y-4">
                 <input type="hidden" id="editQtyId">
                 <div>
-                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Nova Quantidade</label>
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Nova Quantidade (kg)</label>
                     <input type="number" id="newQtyInput" min="0" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <p class="text-xs text-slate-600 font-medium mt-1">Se a quantidade for menor que a original, o status mudará para <span class="text-amber-700 font-bold">Parcial</span>.</p>
                 </div>
                 <div class="flex items-center justify-end space-x-2">
                     <button onclick="closeModal('qtyModal')" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-3 py-1.5 rounded-xl text-xs font-bold">Cancelar</button>
@@ -450,7 +512,7 @@
         </div>
     </div>
 
-    <!-- Modal: Ação (Concluir/Cancelar) -->
+    <!-- Modal: Janela de Confirmação para Ações (Concluir / Cancelar) -->
     <div id="actionModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
         <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full mx-4 overflow-hidden transform scale-95 transition-transform duration-300" id="actionModalContainer">
             <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
@@ -462,10 +524,10 @@
             <div class="p-5 space-y-4">
                 <input type="hidden" id="actionTargetId">
                 <input type="hidden" id="actionTargetType">
-                <p id="actionModalText" class="text-xs sm:text-sm text-slate-800 font-medium">Tem certeza?</p>
-                <div>
-                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Seu Nome (Responsável)</label>
-                    <input type="text" id="actionUserName" required placeholder="Ex: Carlos Silva" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <p id="actionModalText" class="text-xs sm:text-sm text-slate-800 font-medium">Tem certeza que deseja prosseguir?</p>
+                <div id="actionReasonContainer">
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1" id="actionReasonLabel">Motivo / Informação</label>
+                    <input type="text" id="actionReasonInput" required placeholder="Ex: Cliente cancelou o pedido por alteração" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <div class="flex items-center justify-end space-x-2 pt-2">
                     <button onclick="closeModal('actionModal')" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-3 py-1.5 rounded-xl text-xs font-bold">Cancelar</button>
@@ -481,27 +543,89 @@
         <span id="toastMessage" class="text-xs sm:text-sm font-bold text-white">Ação realizada com sucesso!</span>
     </div>
 
-    <script>
-        // Carregamento inicial do localStorage
-        let reservations = JSON.parse(localStorage.getItem('pcp_reservations')) || [];
-        let completedReservations = JSON.parse(localStorage.getItem('pcp_completed')) || [];
-        let cancelledReservations = JSON.parse(localStorage.getItem('pcp_cancelled')) || [];
+    <!-- Firebase SDKs (Modular v10) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // CONFIGURAÇÃO DO FIREBASE (SUBSTITUA PELAS SUAS CHAVES REAIS)
+        const firebaseConfig = {
+            apiKey: "SUA_API_KEY",
+            authDomain: "SEU_DOMINIO.firebaseapp.com",
+            projectId: "SEU_PROJECT_ID",
+            storageBucket: "SEU_BUCKET.appspot.com",
+            messagingSenderId: "SEU_SENDER_ID",
+            appId: "SEU_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let reservations = [];
+        let completedReservations = [];
+        let cancelledReservations = [];
+        let historicalLog = []; 
 
         let currentGlobalUnit = 'Ambas';
         let chartsInstance = { mg1: null, mg4: null, both: null };
         let parsedExcelData = null;
 
-        function saveData() {
-            localStorage.setItem('pcp_reservations', JSON.stringify(reservations));
-            localStorage.setItem('pcp_completed', JSON.stringify(completedReservations));
-            localStorage.setItem('pcp_cancelled', JSON.stringify(cancelledReservations));
-        }
-
-        window.onload = function() {
+        window.onload = async function() {
+            await loadDataFromFirebase();
             switchTab('geral');
+            
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const monthInput = document.getElementById('chartMonthFilter');
+            if (monthInput && !monthInput.value) {
+                monthInput.value = `${year}-${month}`;
+            }
         };
 
-        function changeGlobalUnit(val) {
+        async function loadDataFromFirebase() {
+            try {
+                const resSnap = await getDocs(collection(db, "reservations"));
+                reservations = [];
+                resSnap.forEach(docSnap => reservations.push({ id: docSnap.id, ...docSnap.data() }));
+
+                const compSnap = await getDocs(collection(db, "completedReservations"));
+                completedReservations = [];
+                compSnap.forEach(docSnap => completedReservations.push({ id: docSnap.id, ...docSnap.data() }));
+
+                const cancSnap = await getDocs(collection(db, "cancelledReservations"));
+                cancelledReservations = [];
+                cancSnap.forEach(docSnap => cancelledReservations.push({ id: docSnap.id, ...docSnap.data() }));
+
+                const logSnap = await getDocs(collection(db, "historicalLog"));
+                historicalLog = [];
+                logSnap.forEach(docSnap => historicalLog.push({ id: docSnap.id, ...docSnap.data() }));
+
+                if (historicalLog.length === 0 && reservations.length === 0 && completedReservations.length === 0) {
+                    await seedDefaultData();
+                }
+            } catch (err) {
+                console.error("Erro ao carregar dados do Firebase:", err);
+                showToast("Erro ao conectar com o Firebase.", "rose");
+            }
+            refreshAllViews();
+        }
+
+        async function seedDefaultData() {
+            const defaultsRes = [
+                { id: '1', machine: 'Torno CNC 01', client: 'Metalúrgica Alfa', item: 'Eixo 1020', desc: 'Usinado e temperado', qty: 100, originalQty: 100, unit: 'MG1', status: 'Disponível', arrivalDate: '2026-03-01', pcpDate: '2026-03-15', reason: '' },
+                { id: '2', machine: 'Fresadora 03', client: 'Indústrias Beta', item: 'Flange Aço', desc: 'Furação 8 furos', qty: 45, originalQty: 60, unit: 'MG1', status: 'Parcial', arrivalDate: '2026-03-05', pcpDate: '2026-03-20', reason: '' },
+                { id: '3', machine: 'Prensa Hidráulica', client: 'Metalúrgica Alfa', item: 'Chapa Perfurada', desc: 'Aço inox 3mm', qty: 200, originalQty: 200, unit: 'MG4', status: 'Disponível', arrivalDate: '2026-02-15', pcpDate: '2026-03-10', reason: '' }
+            ];
+            for (const r of defaultsRes) {
+                await setDoc(doc(db, "reservations", r.id), r);
+                reservations.push(r);
+                historicalLog.push({ id: 'log_' + r.id, type: 'arrival', unit: r.unit, date: r.arrivalDate, qty: r.originalQty, client: r.client });
+                await setDoc(doc(db, "historicalLog", 'log_' + r.id), { type: 'arrival', unit: r.unit, date: r.arrivalDate, qty: r.originalQty, client: r.client });
+            }
+        }
+
+        window.changeGlobalUnit = function(val) {
             currentGlobalUnit = val;
             refreshAllViews();
             showToast('Filtro de unidade aplicado: ' + val);
@@ -522,7 +646,7 @@
             return cancelledReservations.filter(r => r.unit === currentGlobalUnit);
         }
 
-        function toggleMenu() {
+        window.toggleMenu = function() {
             const menu = document.getElementById('sideMenu');
             const overlay = document.getElementById('sideMenuOverlay');
             const isOpen = !menu.classList.contains('-translate-x-full');
@@ -539,7 +663,7 @@
             }
         }
 
-        function switchTab(tabId) {
+        window.switchTab = function(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.getElementById('tab-' + tabId).classList.remove('hidden');
 
@@ -550,7 +674,6 @@
             if (activeMenu) {
                 activeMenu.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition text-white bg-indigo-600 shadow";
             }
-
             refreshAllViews();
         }
 
@@ -560,16 +683,17 @@
             renderClientes();
             renderConcluidas();
             renderCanceladas();
+            renderFluxo();
             renderCharts();
         }
 
-        function renderGeral() {
+        window.renderGeral = function() {
             const query = (document.getElementById('geralSearch').value || '').toLowerCase();
             const list = getFilteredReservations().filter(item => 
-                (item.machine || '').toLowerCase().includes(query) || 
-                (item.client || '').toLowerCase().includes(query) || 
-                (item.item || '').toLowerCase().includes(query) ||
-                (item.desc || '').toLowerCase().includes(query)
+                item.machine.toLowerCase().includes(query) || 
+                item.client.toLowerCase().includes(query) || 
+                item.item.toLowerCase().includes(query) ||
+                item.desc.toLowerCase().includes(query)
             );
 
             const tbody = document.getElementById('geralTableBody');
@@ -594,8 +718,9 @@
                         <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(item.client)}</td>
                         <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.item)}</td>
                         <td class="py-3 px-4 text-slate-700 text-xs font-medium">${escapeHtml(item.desc)}</td>
+                        <td class="py-3 px-4 font-extrabold text-slate-700">${item.originalQty || item.qty} kg</td>
                         <td class="py-3 px-4 font-extrabold text-slate-900 flex items-center space-x-2">
-                            <span>${item.qty}</span>
+                            <span>${item.qty} kg</span>
                             <button onclick="openQtyModal('${item.id}', ${item.qty})" class="text-indigo-700 hover:text-indigo-900 p-1.5 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition font-bold" title="Editar quantidade">
                                 <i class="fa-solid fa-pen text-xs"></i>
                             </button>
@@ -618,10 +743,10 @@
             }
         }
 
-        function renderAberto() {
+        window.renderAberto = function() {
             const query = (document.getElementById('abertoClientFilter').value || '').toLowerCase();
             const list = getFilteredReservations().filter(item => 
-                item.status === 'Disponível' && (item.client || '').toLowerCase().includes(query)
+                (item.status === 'Disponível' || item.status === 'Parcial') && item.client.toLowerCase().includes(query)
             );
 
             const tbody = document.getElementById('abertoTableBody');
@@ -634,17 +759,21 @@
                 empty.classList.add('hidden');
                 list.forEach(item => {
                     const agingDays = calculateAging(item.arrivalDate);
+                    const statusBadge = item.status === 'Disponível' 
+                        ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">Disponível</span>'
+                        : '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">Parcial</span>';
+
                     const tr = document.createElement('tr');
                     tr.className = "hover:bg-slate-50 transition-colors";
                     tr.innerHTML = `
                         <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(item.client)}</td>
                         <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.machine)}</td>
                         <td class="py-3 px-4 text-slate-800 font-semibold">${escapeHtml(item.item)}</td>
-                        <td class="py-3 px-4 text-slate-700 text-xs font-medium">${escapeHtml(item.desc)}</td>
-                        <td class="py-3 px-4 font-extrabold text-slate-900">${item.qty}</td>
+                        <td class="py-3 px-4 font-extrabold text-slate-900">${item.qty} kg</td>
                         <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.unit)}</td>
+                        <td class="py-3 px-4">${statusBadge}</td>
                         <td class="py-3 px-4">
-                            <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">${agingDays} dias em aberto</span>
+                            <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">${agingDays} dias em aberto</span>
                         </td>
                         <td class="py-3 px-4 text-slate-700 text-xs font-semibold">${formatDate(item.arrivalDate)}</td>
                     `;
@@ -653,24 +782,24 @@
             }
         }
 
-        function renderClientes() {
-            const list = getFilteredReservations();
+        window.renderClientes = function() {
+            const list = getFilteredReservations().filter(r => r.status === 'Disponível' || r.status === 'Parcial');
             const clientCounts = {};
 
             list.forEach(item => {
                 if (!clientCounts[item.client]) clientCounts[item.client] = 0;
-                clientCounts[item.client]++;
+                clientCounts[item.client] += Number(item.qty || 0);
             });
 
             const sortedClients = Object.keys(clientCounts).map(client => ({
-                client, count: clientCounts[client]
-            })).sort((a, b) => a.count - b.count);
+                client, totalQty: clientCounts[client]
+            })).sort((a, b) => a.totalQty - b.totalQty);
 
             const container = document.getElementById('clientListContainer');
             container.innerHTML = '';
 
             if (sortedClients.length === 0) {
-                container.innerHTML = '<p class="text-xs text-slate-600 font-medium p-2">Nenhum cliente com reservas.</p>';
+                container.innerHTML = '<p class="text-xs text-slate-600 font-medium p-2">Nenhum cliente com reservas abertas.</p>';
                 return;
             }
 
@@ -682,7 +811,7 @@
                         <span class="w-6 h-6 rounded-full bg-slate-100 group-hover:bg-indigo-200 group-hover:text-indigo-900 text-slate-800 font-bold text-xs flex items-center justify-center">${idx + 1}</span>
                         <span class="font-bold text-slate-900 text-sm">${escapeHtml(sc.client)}</span>
                     </div>
-                    <span class="bg-indigo-100 text-indigo-900 text-xs font-extrabold px-2.5 py-1 rounded-full">${sc.count} reservas</span>
+                    <span class="bg-indigo-100 text-indigo-900 text-xs font-extrabold px-2.5 py-1 rounded-full">${sc.totalQty} kg total</span>
                 `;
                 btn.onclick = () => selectClientForDetail(sc.client);
                 container.appendChild(btn);
@@ -695,24 +824,25 @@
 
         function selectClientForDetail(clientName) {
             document.getElementById('clientDetailHeader').innerText = 'Reservas Ativas do Cliente: ' + clientName;
-            const list = getFilteredReservations().filter(r => r.client === clientName);
+            const list = getFilteredReservations().filter(r => r.client === clientName && (r.status === 'Disponível' || r.status === 'Parcial'));
             const tbody = document.getElementById('clientDetailTableBody');
             tbody.innerHTML = '';
 
             list.forEach(item => {
+                const agingDays = calculateAging(item.arrivalDate);
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="py-2.5 px-3 font-bold text-slate-900">${escapeHtml(item.machine)}</td>
                     <td class="py-2.5 px-3 font-semibold text-slate-800">${escapeHtml(item.item)}</td>
-                    <td class="py-2.5 px-3 font-extrabold text-slate-900">${item.qty}</td>
+                    <td class="py-2.5 px-3 font-extrabold text-slate-900">${item.qty} kg</td>
                     <td class="py-2.5 px-3"><span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${item.status === 'Disponível' ? 'bg-blue-100 text-blue-900 border border-blue-200' : 'bg-amber-100 text-amber-900 border border-amber-200'}">${item.status}</span></td>
-                    <td class="py-2.5 px-3 text-slate-700 font-semibold">${formatDate(item.pcpDate)}</td>
+                    <td class="py-2.5 px-3 font-semibold text-slate-700">${agingDays} dias</td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        function renderConcluidas() {
+        window.renderConcluidas = function() {
             const list = getFilteredCompleted();
             const tbody = document.getElementById('concluidasTableBody');
             const empty = document.getElementById('concluidasEmpty');
@@ -723,16 +853,16 @@
             } else {
                 empty.classList.add('hidden');
                 list.forEach(item => {
+                    const durationOpen = calculateDuration(item.arrivalDate, item.date);
                     const tr = document.createElement('tr');
                     tr.className = "hover:bg-slate-50 transition-colors";
                     tr.innerHTML = `
                         <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(item.client)}</td>
                         <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.machine)}</td>
                         <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.item)}</td>
-                        <td class="py-3 px-4 text-slate-700 text-xs font-medium">${escapeHtml(item.desc)}</td>
-                        <td class="py-3 px-4 font-extrabold text-slate-900">${item.qty}</td>
+                        <td class="py-3 px-4 font-extrabold text-slate-900">${item.qty} kg</td>
                         <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.unit)}</td>
-                        <td class="py-3 px-4 font-bold text-indigo-900"><i class="fa-solid fa-user mr-1 text-xs"></i>${escapeHtml(item.user)}</td>
+                        <td class="py-3 px-4 font-bold text-indigo-900">${durationOpen} dias em aberto</td>
                         <td class="py-3 px-4 text-slate-700 text-xs font-semibold">${formatDate(item.date)}</td>
                     `;
                     tbody.appendChild(tr);
@@ -740,7 +870,7 @@
             }
         }
 
-        function renderCanceladas() {
+        window.renderCanceladas = function() {
             const list = getFilteredCancelled();
             const tbody = document.getElementById('canceladasTableBody');
             const empty = document.getElementById('canceladasEmpty');
@@ -751,16 +881,17 @@
             } else {
                 empty.classList.add('hidden');
                 list.forEach(item => {
+                    const durationOpen = calculateDuration(item.arrivalDate, item.date);
                     const tr = document.createElement('tr');
                     tr.className = "hover:bg-slate-50 transition-colors";
                     tr.innerHTML = `
                         <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(item.client)}</td>
                         <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.machine)}</td>
                         <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.item)}</td>
-                        <td class="py-3 px-4 text-slate-700 text-xs font-medium">${escapeHtml(item.desc)}</td>
-                        <td class="py-3 px-4 font-extrabold text-slate-900">${item.qty}</td>
+                        <td class="py-3 px-4 font-extrabold text-slate-900">${item.qty} kg</td>
                         <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.unit)}</td>
-                        <td class="py-3 px-4 font-bold text-rose-900"><i class="fa-solid fa-user mr-1 text-xs"></i>${escapeHtml(item.user)}</td>
+                        <td class="py-3 px-4 font-bold text-amber-800">${durationOpen} dias em aberto</td>
+                        <td class="py-3 px-4 text-slate-700 text-xs font-medium">${escapeHtml(item.reason || 'Sem motivo informado')}</td>
                         <td class="py-3 px-4 text-slate-700 text-xs font-semibold">${formatDate(item.date)}</td>
                     `;
                     tbody.appendChild(tr);
@@ -768,44 +899,194 @@
             }
         }
 
-        function renderCharts() {
+        window.renderFluxo = function() {
+            const tbody = document.getElementById('fluxoTableBody');
+            tbody.innerHTML = '';
+
+            let all = [];
+            reservations.forEach(r => all.push({ ...r, flowState: 'Ativa' }));
+            completedReservations.forEach(c => all.push({ ...c, flowState: 'Concluída' }));
+            cancelledReservations.forEach(x => all.push({ ...x, flowState: 'Cancelada' }));
+
+            if (all.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-slate-500 font-semibold">Nenhum registro encontrado.</td></tr>';
+                return;
+            }
+
+            all.forEach(item => {
+                const stateBadge = item.flowState === 'Ativa' 
+                    ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">Ativa</span>'
+                    : item.flowState === 'Concluída'
+                    ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">Concluída</span>'
+                    : '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800">Cancelada</span>';
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition-colors";
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(item.client)}</td>
+                    <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.machine)}</td>
+                    <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(item.item)}</td>
+                    <td class="py-3 px-4 font-extrabold text-slate-900">${item.qty} kg</td>
+                    <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(item.unit)}</td>
+                    <td class="py-3 px-4">${stateBadge}</td>
+                    <td class="py-3 px-4 text-right space-x-1">
+                        ${item.flowState === 'Cancelada' ? `<button onclick="restoreCancelled('${item.id}')" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1 rounded-lg text-xs font-bold transition" title="Restaurar para Disponível"><i class="fa-solid fa-rotate-left mr-1"></i> Restaurar</button>` : ''}
+                        <button onclick="editFlowItem('${item.id}', '${item.flowState}')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 p-1.5 rounded-lg text-xs font-bold transition" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteFlowItem('${item.id}', '${item.flowState}')" class="bg-rose-100 hover:bg-rose-200 text-rose-800 p-1.5 rounded-lg text-xs font-bold transition" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.restoreCancelled = async function(id) {
+            const idx = cancelledReservations.findIndex(x => x.id === id);
+            if (idx !== -1) {
+                const item = cancelledReservations.splice(idx, 1)[0];
+                await deleteDoc(doc(db, "cancelledReservations", id));
+
+                const restored = {
+                    machine: item.machine,
+                    client: item.client,
+                    item: item.item,
+                    desc: item.desc || '',
+                    qty: item.qty,
+                    originalQty: item.originalQty || item.qty,
+                    unit: item.unit,
+                    status: 'Disponível',
+                    arrivalDate: item.arrivalDate || new Date().toISOString().split('T')[0],
+                    pcpDate: item.pcpDate || new Date().toISOString().split('T')[0],
+                    reason: ''
+                };
+                await setDoc(doc(db, "reservations", id), restored);
+                reservations.unshift({ id, ...restored });
+
+                refreshAllViews();
+                showToast('Reserva restaurada para disponível!');
+            }
+        }
+
+        window.editFlowItem = async function(id, state) {
+            let item = null;
+            if (state === 'Ativa') item = reservations.find(r => r.id === id);
+            else if (state === 'Concluída') item = completedReservations.find(c => c.id === id);
+            else item = cancelledReservations.find(x => x.id === id);
+
+            if (!item) return;
+
+            const newQty = prompt('Editar Quantidade (kg):', item.qty);
+            if (newQty !== null && !isNaN(newQty)) {
+                item.qty = Number(newQty);
+                if (state === 'Ativa') {
+                    if (item.qty < (item.originalQty || item.qty)) item.status = 'Parcial';
+                    else item.status = 'Disponível';
+                    await updateDoc(doc(db, "reservations", id), { qty: item.qty, status: item.status });
+                } else if (state === 'Concluída') {
+                    await updateDoc(doc(db, "completedReservations", id), { qty: item.qty });
+                } else {
+                    await updateDoc(doc(db, "cancelledReservations", id), { qty: item.qty });
+                }
+                refreshAllViews();
+                showToast('Registro editado com sucesso!');
+            }
+        }
+
+        window.deleteFlowItem = async function(id, state) {
+            if (confirm('Deseja realmente excluir este registro do sistema?')) {
+                if (state === 'Ativa') {
+                    reservations = reservations.filter(r => r.id !== id);
+                    await deleteDoc(doc(db, "reservations", id));
+                } else if (state === 'Concluída') {
+                    completedReservations = completedReservations.filter(c => c.id !== id);
+                    await deleteDoc(doc(db, "completedReservations", id));
+                } else {
+                    cancelledReservations = cancelledReservations.filter(x => x.id !== id);
+                    await deleteDoc(doc(db, "cancelledReservations", id));
+                }
+                refreshAllViews();
+                showToast('Registro excluído com sucesso!');
+            }
+        }
+
+        window.resetChartsStorage = async function() {
+            if (confirm('Deseja zerar todo o histórico de gráficos acumulado?')) {
+                for (const log of historicalLog) {
+                    await deleteDoc(doc(db, "historicalLog", log.id));
+                }
+                historicalLog = [];
+                refreshAllViews();
+                showToast('Gráficos zerados com sucesso!');
+            }
+        }
+
+        window.recalculateCharts = async function() {
+            for (const log of historicalLog) {
+                if(log.id) await deleteDoc(doc(db, "historicalLog", log.id));
+            }
+            historicalLog = [];
+
+            for (const r of reservations) {
+                if (r.arrivalDate) {
+                    const logId = 'log_res_' + r.id;
+                    const logObj = { type: 'arrival', unit: r.unit, date: r.arrivalDate, qty: Number(r.originalQty || r.qty), client: r.client };
+                    await setDoc(doc(db, "historicalLog", logId), logObj);
+                    historicalLog.push({ id: logId, ...logObj });
+                }
+            }
+            for (const c of completedReservations) {
+                if (c.date) {
+                    const logId = 'log_comp_' + c.id;
+                    const logObj = { type: 'completed', unit: c.unit, date: c.date, qty: Number(c.originalQty || c.qty), client: c.client };
+                    await setDoc(doc(db, "historicalLog", logId), logObj);
+                    historicalLog.push({ id: logId, ...logObj });
+                }
+            }
+            for (const x of cancelledReservations) {
+                if (x.date) {
+                    const logId = 'log_canc_' + x.id;
+                    const logObj = { type: 'cancelled', unit: x.unit, date: x.date, qty: Number(x.originalQty || x.qty), client: x.client };
+                    await setDoc(doc(db, "historicalLog", logId), logObj);
+                    historicalLog.push({ id: logId, ...logObj });
+                }
+            }
+            refreshAllViews();
+            showToast('Gráficos recalculados no Firebase!');
+        }
+
+        window.renderCharts = function() {
+            const selectedMonthStr = document.getElementById('chartMonthFilter').value;
+
             function getMonthlyStats(unitFilter) {
                 const arrivals = new Array(12).fill(0);
                 const completed = new Array(12).fill(0);
                 const cancelled = new Array(12).fill(0);
 
-                let resList = unitFilter === 'Ambas' ? reservations : reservations.filter(r => r.unit === unitFilter);
-                let compList = unitFilter === 'Ambas' ? completedReservations : completedReservations.filter(r => r.unit === unitFilter);
-                let cancList = unitFilter === 'Ambas' ? cancelledReservations : cancelledReservations.filter(r => r.unit === unitFilter);
+                historicalLog.forEach(log => {
+                    if (!log.date) return;
+                    const parts = log.date.split('-');
+                    const logYearMonth = `${parts[0]}-${parts[1]}`;
+                    
+                    if (selectedMonthStr && logYearMonth !== selectedMonthStr) return;
+                    if (unitFilter !== 'Ambas' && log.unit !== unitFilter) return;
 
-                resList.forEach(r => {
-                    if (r.arrivalDate) {
-                        const m = new Date(r.arrivalDate).getMonth();
-                        if (!isNaN(m)) arrivals[m]++;
-                    }
-                });
-                compList.forEach(c => {
-                    if (c.date) {
-                        const m = new Date(c.date).getMonth();
-                        if (!isNaN(m)) completed[m]++;
-                    }
-                });
-                cancList.forEach(x => {
-                    if (x.date) {
-                        const m = new Date(x.date).getMonth();
-                        if (!isNaN(m)) cancelled[m]++;
+                    const monthIdx = parseInt(parts[1], 10) - 1;
+                    if (monthIdx >= 0 && monthIdx < 12) {
+                        const qty = Number(log.qty || 0);
+                        if (log.type === 'arrival') arrivals[monthIdx] += qty;
+                        else if (log.type === 'completed') completed[monthIdx] += qty;
+                        else if (log.type === 'cancelled') cancelled[monthIdx] += qty;
                     }
                 });
 
                 return { arrivals, completed, cancelled };
             }
 
-            renderSingleChart('chartMG1', 'listMG1', getMonthlyStats('MG1'), 'MG1');
-            renderSingleChart('chartMG4', 'listMG4', getMonthlyStats('MG4'), 'MG4');
-            renderSingleChart('chartBoth', 'listBoth', getMonthlyStats('Ambas'), 'Ambas');
+            renderSingleChart('chartMG1', 'listMG1', getMonthlyStats('MG1'), 'MG1', selectedMonthStr);
+            renderSingleChart('chartMG4', 'listMG4', getMonthlyStats('MG4'), 'MG4', selectedMonthStr);
+            renderSingleChart('chartBoth', 'listBoth', getMonthlyStats('Ambas'), 'Ambas', selectedMonthStr);
         }
 
-        function renderSingleChart(canvasId, listId, stats, unitName) {
+        function renderSingleChart(canvasId, listId, stats, unitName, monthStr) {
             const ctx = document.getElementById(canvasId).getContext('2d');
             
             if (window[canvasId + 'Obj']) {
@@ -817,9 +1098,9 @@
                 data: {
                     labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
                     datasets: [
-                        { label: 'Chegadas', data: stats.arrivals, backgroundColor: '#6366f1', borderRadius: 6 },
-                        { label: 'Concluídas', data: stats.completed, backgroundColor: '#10b981', borderRadius: 6 },
-                        { label: 'Canceladas', data: stats.cancelled, backgroundColor: '#f43f5e', borderRadius: 6 }
+                        { label: 'Chegadas (kg)', data: stats.arrivals, backgroundColor: '#6366f1', borderRadius: 6 },
+                        { label: 'Concluídas (kg)', data: stats.completed, backgroundColor: '#10b981', borderRadius: 6 },
+                        { label: 'Canceladas (kg)', data: stats.cancelled, backgroundColor: '#f43f5e', borderRadius: 6 }
                     ]
                 },
                 options: {
@@ -837,11 +1118,18 @@
             listEl.innerHTML = '';
             
             let clientSet = new Set();
-            let unitRes = unitName === 'Ambas' ? reservations : reservations.filter(r => r.unit === unitName);
-            unitRes.forEach(r => clientSet.add(r.client));
+            historicalLog.forEach(log => {
+                if (log.date) {
+                    const parts = log.date.split('-');
+                    const ym = `${parts[0]}-${parts[1]}`;
+                    if (monthStr && ym !== monthStr) return;
+                    if (unitName !== 'Ambas' && log.unit !== unitName) return;
+                    if (log.client) clientSet.add(log.client);
+                }
+            });
 
             if (clientSet.size === 0) {
-                listEl.innerHTML = '<span class="text-slate-600 font-medium">Nenhum cliente registrado.</span>';
+                listEl.innerHTML = '<span class="text-slate-600 font-medium">Nenhum cliente no período.</span>';
             } else {
                 clientSet.forEach(c => {
                     const badge = document.createElement('div');
@@ -852,7 +1140,44 @@
             }
         }
 
-        function openModal(modalId) {
+        window.downloadPDFReport = function() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const monthStr = document.getElementById('chartMonthFilter').value || 'Geral';
+
+            doc.setFontSize(16);
+            doc.text("PCP - Relatório Mensal de Reservas", 14, 20);
+            doc.setFontSize(11);
+            doc.text(`Período / Mês: ${monthStr} | Unidade: ${currentGlobalUnit}`, 14, 28);
+
+            let y = 38;
+            doc.setFontSize(13);
+            doc.text("Resumo de Chegadas, Concluídas e Canceladas", 14, y);
+            y += 8;
+
+            let totalArr = 0, totalComp = 0, totalCanc = 0;
+            historicalLog.forEach(log => {
+                if (log.date) {
+                    const ym = log.date.substring(0, 7);
+                    if (monthStr !== 'Geral' && ym !== monthStr) return;
+                    if (currentGlobalUnit !== 'Ambas' && log.unit !== currentGlobalUnit) return;
+                    if (log.type === 'arrival') totalArr += Number(log.qty || 0);
+                    else if (log.type === 'completed') totalComp += Number(log.qty || 0);
+                    else if (log.type === 'cancelled') totalCanc += Number(log.qty || 0);
+                }
+            });
+
+            doc.setFontSize(10);
+            doc.text(`Total Chegadas: ${totalArr} kg`, 14, y); y += 6;
+            doc.text(`Total Concluídas: ${totalComp} kg`, 14, y); y += 6;
+            doc.text(`Total Canceladas: ${totalCanc} kg`, 14, y); y += 12;
+
+            doc.text("Gerado automaticamente pelo Sistema PCP v3.1 (Firebase)", 14, y);
+            doc.save(`Relatorio_PCP_${monthStr}.pdf`);
+            showToast('Relatório PDF baixado com sucesso!');
+        }
+
+        window.openModal = function(modalId) {
             const modal = document.getElementById(modalId);
             const container = document.getElementById(modalId + 'Container') || modal.firstElementChild;
             modal.classList.remove('hidden');
@@ -863,7 +1188,7 @@
             }, 10);
         }
 
-        function closeModal(modalId) {
+        window.closeModal = function(modalId) {
             const modal = document.getElementById(modalId);
             const container = document.getElementById(modalId + 'Container') || modal.firstElementChild;
             modal.classList.add('opacity-0');
@@ -872,7 +1197,7 @@
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
 
-        function saveReservation(e) {
+        window.saveReservation = async function(e) {
             e.preventDefault();
             const machine = document.getElementById('resMachine').value;
             const client = document.getElementById('resClient').value;
@@ -883,41 +1208,52 @@
             const arrivalDate = document.getElementById('resArrivalDate').value;
             const pcpDate = document.getElementById('resPcpDate').value;
 
-            reservations.push({
-                id: '_' + Math.random().toString(36).substr(2, 9),
-                machine, client, item, desc, qty, originalQty: qty, unit, status: 'Disponível', arrivalDate, pcpDate, user: ''
-            });
+            const newId = Date.now().toString();
+            const newRes = {
+                machine, client, item, desc, qty, originalQty: qty, unit, status: 'Disponível', arrivalDate, pcpDate, reason: ''
+            };
+            
+            await setDoc(doc(db, "reservations", newId), newRes);
+            reservations.unshift({ id: newId, ...newRes });
 
-            saveData();
+            const logId = 'log_' + newId;
+            const logObj = { type: 'arrival', unit, date: arrivalDate, qty, client };
+            await setDoc(doc(db, "historicalLog", logId), logObj);
+            historicalLog.push({ id: logId, ...logObj });
+
             refreshAllViews();
             closeModal('reservationModal');
             document.getElementById('reservationForm').reset();
-            showToast('Nova reserva cadastrada com sucesso!');
+            showToast('Nova reserva cadastrada no Firebase!');
         }
 
-        function openQtyModal(id, currentQty) {
+        window.openQtyModal = function(id, currentQty) {
             document.getElementById('editQtyId').value = id;
             document.getElementById('newQtyInput').value = currentQty;
             openModal('qtyModal');
         }
 
-        function confirmEditQty() {
+        window.confirmEditQty = async function() {
             const id = document.getElementById('editQtyId').value;
             const newQty = Number(document.getElementById('newQtyInput').value);
             const item = reservations.find(r => r.id === id);
 
             if (item) {
                 item.qty = newQty;
-                item.status = newQty < item.originalQty ? 'Parcial' : 'Disponível';
-                saveData();
+                if (newQty < (item.originalQty || item.qty)) {
+                    item.status = 'Parcial';
+                } else {
+                    item.status = 'Disponível';
+                }
+                await updateDoc(doc(db, "reservations", id), { qty: item.qty, status: item.status });
                 refreshAllViews();
                 closeModal('qtyModal');
-                showToast('Quantidade atualizada com sucesso!');
+                showToast('Quantidade atualizada no Firebase!');
             }
         }
 
         let pendingActionData = null;
-        function promptAction(id, actionType) {
+        window.promptAction = function(id, actionType) {
             pendingActionData = { id, actionType };
             const title = actionType === 'concluir' ? 'Concluir Reserva' : 'Cancelar Reserva';
             const text = actionType === 'concluir' ? 'Deseja marcar esta reserva como concluída?' : 'Deseja cancelar esta reserva?';
@@ -927,41 +1263,66 @@
             document.getElementById('actionModalText').innerText = text;
             const btn = document.getElementById('actionConfirmBtn');
             btn.className = `px-4 py-1.5 rounded-xl text-xs font-bold shadow ${btnClass}`;
-            document.getElementById('actionUserName').value = '';
+            document.getElementById('actionReasonInput').value = '';
 
             openModal('actionModal');
         }
 
-        function executeAction() {
-            const userName = document.getElementById('actionUserName').value.trim();
-            if (!userName) {
-                showToast('Por favor, informe seu nome como responsável.', 'rose');
+        window.executeAction = async function() {
+            const reason = document.getElementById('actionReasonInput').value.trim();
+            if (!reason) {
+                showToast('Por favor, informe o motivo ou observação.', 'rose');
                 return;
             }
 
             const { id, actionType } = pendingActionData;
             const index = reservations.findIndex(r => r.id === id);
-            
             if (index !== -1) {
                 const item = reservations.splice(index, 1)[0];
+                await deleteDoc(doc(db, "reservations", id));
+
                 const today = new Date().toISOString().split('T')[0];
-                const record = { ...item, user: userName, date: today };
 
                 if (actionType === 'concluir') {
-                    completedReservations.push(record);
+                    const compId = 'c_' + Date.now();
+                    const compObj = {
+                        machine: item.machine, client: item.client, item: item.item, desc: item.desc,
+                        qty: item.qty, originalQty: item.originalQty || item.qty, unit: item.unit,
+                        reason: reason, date: today, arrivalDate: item.arrivalDate
+                    };
+                    await setDoc(doc(db, "completedReservations", compId), compObj);
+                    completedReservations.unshift({ id: compId, ...compObj });
+
+                    const logId = 'log_comp_' + compId;
+                    const logObj = { type: 'completed', unit: item.unit, date: today, qty: Number(item.originalQty || item.qty), client: item.client };
+                    await setDoc(doc(db, "historicalLog", logId), logObj);
+                    historicalLog.push({ id: logId, ...logObj });
+
                     showToast('Reserva concluída com sucesso!');
                 } else {
-                    cancelledReservations.push(record);
+                    const cancId = 'x_' + Date.now();
+                    const cancObj = {
+                        machine: item.machine, client: item.client, item: item.item, desc: item.desc,
+                        qty: item.qty, originalQty: item.originalQty || item.qty, unit: item.unit,
+                        reason: reason, date: today, arrivalDate: item.arrivalDate
+                    };
+                    await setDoc(doc(db, "cancelledReservations", cancId), cancObj);
+                    cancelledReservations.unshift({ id: cancId, ...cancObj });
+
+                    const logId = 'log_canc_' + cancId;
+                    const logObj = { type: 'cancelled', unit: item.unit, date: today, qty: Number(item.originalQty || item.qty), client: item.client };
+                    await setDoc(doc(db, "historicalLog", logId), logObj);
+                    historicalLog.push({ id: logId, ...logObj });
+
                     showToast('Reserva cancelada.', 'rose');
                 }
 
-                saveData();
                 refreshAllViews();
                 closeModal('actionModal');
             }
         }
 
-        function downloadExcelTemplate() {
+        window.downloadExcelTemplate = function() {
             const templateData = [
                 { Máquina: "Torno CNC 01", Cliente: "Cliente Exemplo", Item: "Eixo Aço", Descrição: "Peça usinada", Quantidade: 50, Unidade: "MG1", DataChegada: "2026-03-01", DataPCP: "2026-03-20" }
             ];
@@ -972,7 +1333,7 @@
             showToast('Modelo Excel (.xlsx) baixado com sucesso!');
         }
 
-        function handleExcelFileSelect(event) {
+        window.handleExcelFileSelect = function(event) {
             const file = event.target.files[0];
             if (!file) return;
             document.getElementById('fileNameLabel').innerText = file.name;
@@ -994,14 +1355,14 @@
             reader.readAsArrayBuffer(file);
         }
 
-        function processExcelImport() {
+        window.processExcelImport = async function() {
             if (!parsedExcelData || parsedExcelData.length === 0) {
                 showToast('Nenhum arquivo Excel válido selecionado.', 'rose');
                 return;
             }
 
             let count = 0;
-            parsedExcelData.forEach(row => {
+            for (const row of parsedExcelData) {
                 const machine = row.Máquina || row.Maquina || row.MAQUINA || 'Máquina Geral';
                 const client = row.Cliente || row.CLIENTE || 'Cliente Geral';
                 const item = row.Item || row.ITEM || 'Item Genérico';
@@ -1011,19 +1372,25 @@
                 const arrivalDate = row.DataChegada || row.DATA_CHEGADA || new Date().toISOString().split('T')[0];
                 const pcpDate = row.DataPCP || row.DATA_PCP || new Date().toISOString().split('T')[0];
 
-                reservations.push({
-                    id: '_' + Math.random().toString(36).substr(2, 9),
-                    machine, client, item, desc, qty, originalQty: qty, unit, status: 'Disponível', arrivalDate, pcpDate, user: ''
-                });
-                count++;
-            });
+                const newId = 'xlsx_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+                const resObj = { machine, client, item, desc, qty, originalQty: qty, unit, status: 'Disponível', arrivalDate, pcpDate, reason: '' };
+                
+                await setDoc(doc(db, "reservations", newId), resObj);
+                reservations.unshift({ id: newId, ...resObj });
 
-            saveData();
+                const logId = 'log_' + newId;
+                const logObj = { type: 'arrival', unit, date: arrivalDate, qty, client };
+                await setDoc(doc(db, "historicalLog", logId), logObj);
+                historicalLog.push({ id: logId, ...logObj });
+
+                count++;
+            }
+
             refreshAllViews();
             closeModal('bulkModal');
             parsedExcelData = null;
             document.getElementById('fileNameLabel').innerText = 'Selecione ou arraste o arquivo .xlsx preenchido';
-            showToast(`${count} reservas importadas com sucesso!`);
+            showToast(`${count} reservas importadas para o Firebase!`);
         }
 
         function formatDate(dateStr) {
@@ -1038,8 +1405,22 @@
             const start = new Date(dateStr);
             const now = new Date();
             const diffTime = Math.abs(now - start);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            return diffDays;
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
+
+        function calculateDuration(startDate, endDate) {
+            if (!startDate || !endDate) return 0;
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const diffTime = Math.abs(end - start);
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
+
+        window.resetData = async function() {
+            if (confirm('Restaurar dados de exemplo e limpar Firebase?')) {
+                localStorage.clear();
+                location.reload();
+            }
         }
 
         function showToast(message, type = 'emerald') {
